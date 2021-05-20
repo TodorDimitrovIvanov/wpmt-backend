@@ -1,0 +1,32 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="19">
+            <item index="0" class="java.lang.String" itemvalue="whois" />
+            <item index="1" class="java.lang.String" itemvalue="defer" />
+            <item index="2" class="java.lang.String" itemvalue="netifaces" />
+            <item index="3" class="java.lang.String" itemvalue="onboard" />
+            <item index="4" class="java.lang.String" itemvalue="menulibre" />
+            <item index="5" class="java.lang.String" itemvalue="pycups" />
+            <item index="6" class="java.lang.String" itemvalue="pycairo" />
+            <item index="7" class="java.lang.String" itemvalue="python-apt" />
+            <item index="8" class="java.lang.String" itemvalue="pycrypto" />
+            <item index="9" class="java.lang.String" itemvalue="catfish" />
+            <item index="10" class="java.lang.String" itemvalue="psutil" />
+            <item index="11" class="java.lang.String" itemvalue="cupshelpers" />
+            <item index="12" class="java.lang.String" itemvalue="systemd-python" />
+            <item index="13" class="java.lang.String" itemvalue="mugshot" />
+            <item index="14" class="java.lang.String" itemvalue="language-selector" />
+            <item index="15" class="java.lang.String" itemvalue="pygobject" />
+            <item index="16" class="java.lang.String" itemvalue="unattended-upgrades" />
+            <item index="17" class="java.lang.String" itemvalue="pyxattr" />
+            <item index="18" class="java.lang.String" itemvalue="kivy-designer" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
