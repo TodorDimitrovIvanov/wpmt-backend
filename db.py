@@ -139,3 +139,5 @@ class DB:
         # The "result" is a dictionary of dictionaries.
         # Each dictionary contains the keys and values from the "website" table
         return result
+    ###### WEBSITE ######
+    #####################
