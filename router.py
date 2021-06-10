@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from typing import Optional
 from file import File
 from db import DB
+from getpass import getuser
 
 # This is an ASGI (Asynchronous Server Gateway Interface) server on which the API runs
 # Source: https://www.uvicorn.org/
@@ -12,14 +13,15 @@ app = FastAPI()
 # -------------------------
 # Temporary code
 # When live the API should be able to retrieve the DB settings (and others) from the config.json file
-db_source = "/home/todor/DbSchema/Schemas/wpmt-prototype-exported.sql"
-db_file = "/home/todor/WPMT/db/wpmt.db"
+db_source = "./dbs/wpmt-prototype-exported.sql"
+host_user = getuser()
+db_file = "/home/" + host_user + "/WPMT/db/wpmt.db"
 
 # -------------------------
 # DUMMY DATA
 # We use these variables for testing the DB calls
-client_id = "UEU00002"
-client_key = "UEU00002-K1"
+client_id = "UEU00001"
+client_key = "UEU00001-K1"
 email = "test@domain.com"
 name = "Test Dummy"
 service = "Free"
@@ -48,6 +50,12 @@ def read_root():
 def db_struct_get():
     result = DB.db_struct_list(db_file)
     return result
+
+@app.get("/db/init", status_code=200)
+def db_init():
+    DB.db_init(db_source, db_file)
+    return "Request Received"
+
 # SYSTEM section
 # -------------------------
 
