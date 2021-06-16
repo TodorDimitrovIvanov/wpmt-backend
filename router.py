@@ -1,8 +1,6 @@
 from fastapi import FastAPI
-from typing import Optional
 from file import File
 from db import DB
-from getpass import getuser
 
 # This is an ASGI (Asynchronous Server Gateway Interface) server on which the API runs
 # Source: https://www.uvicorn.org/
