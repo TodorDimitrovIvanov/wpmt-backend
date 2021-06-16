@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from file import File
 from db import DB
 
-# This is an ASGI (Asynchronous Server Gateway Interface) server on which the API runs
+# This is an  ASGI (Asynchronous Server Gateway Interface) server on which the API runs
 # Source: https://www.uvicorn.org/
 import uvicorn
 
