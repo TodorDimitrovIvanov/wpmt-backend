@@ -13,9 +13,12 @@ app = FastAPI()
 # -------------------------
 # Temporary code
 # When live the API should be able to retrieve the DB settings (and others) from the config.json file
-db_source = "./dbs/wpmt-prototype-exported.sql"
-host_user = getuser()
-db_file = "/home/" + host_user + "/WPMT/db/wpmt.db"
+from os.path import expanduser
+user_home = expanduser("~")
+
+db_source = "./dbs/wpmt.sql"
+db_file = user_home + "/WPMT/db/wpmt.db"
+print("DB File: " + db_file)
 
 # -------------------------
 # DUMMY DATA
