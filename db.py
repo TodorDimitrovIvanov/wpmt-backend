@@ -44,6 +44,18 @@ class DB:
     ###################
     ###### USERS ######
     @staticmethod
+    def db_user_login(db_file, email, client_key):
+        sql_prep = "SELECT * FROM users WHERE email=? AND client_key=?"
+        sql_data = [email, client_key]
+        db_conn = DB.db_conn_start(db_file)
+        db_cur = db_conn.cursor()
+        db_cur.execute(sql_prep, sql_data)
+        result = db_cur.fetchall()
+        db_conn.close()
+        return result
+
+
+    @staticmethod
     def db_user_add(db_file, client_id, client_key, email, name, service, notifications, icon):
         sql_prep = "INSERT INTO users (client_id, client_key, email, name, service, notifications, icon) VALUES (?,?,?,?,?,?,?);"
         sql_data = [client_id, client_key, email, name, service, notifications, icon]
@@ -55,9 +67,9 @@ class DB:
         db_conn.close()
 
     @staticmethod
-    def db_user_get(db_file, client_id):
-        sql_prep = "SELECT * FROM users WHERE client_id=?"
-        sql_data = [client_id]
+    def db_user_get(db_file, client_key, email):
+        sql_prep = "SELECT * FROM users WHERE client_key=? AND email=?"
+        sql_data = [client_key, email]
         db_conn = DB.db_conn_start(db_file)
         db_cur = db_conn.cursor()
         db_cur.execute(sql_prep, sql_data)
@@ -105,9 +117,9 @@ class DB:
         db_conn.close()
 
     @staticmethod
-    def db_site_get(db_file, website_id):
-        sql_prep = "SELECT * FROM website WHERE website_id=?"
-        sql_data = [website_id]
+    def db_site_get(db_file, client_id, domain):
+        sql_prep = "SELECT * FROM website WHERE client_id=? AND domain=?"
+        sql_data = [client_id, domain]
         # TODO: Add error handling and reporting
         db_conn = DB.db_conn_start(db_file)
         db_cur = db_conn.cursor()
@@ -119,11 +131,10 @@ class DB:
     @staticmethod
     def db_site_all(db_file, client_id):
         # Here prepare the SQL request and gather the data
-        sql_prep = "SELECT * FROM website WHERE client_id=?"
-        sql_data = [client_id]
+        sql_prep = "SELECT * FROM website"
         db_conn = DB.db_conn_start(db_file)
         db_cur = db_conn.cursor()
-        db_cur.execute(sql_prep, sql_data)
+        db_cur.execute(sql_prep)
         columns = list(map(lambda x: x[0], db_cur.description))
         data = db_cur.fetchall()
 
@@ -138,6 +149,17 @@ class DB:
             result[entry] = json.dumps(temp_dict, indent=4, separators=('\n', ','))
         # The "result" is a dictionary of dictionaries.
         # Each dictionary contains the keys and values from the "website" table
+        return result
+
+    @staticmethod
+    def db_site_user(db_file, client_id):
+        sql_prep = "SELECT * FROM website WHERE client_id=?"
+        sql_data = [client_id]
+        db_conn = DB.db_conn_start(db_file)
+        db_cur = db_conn.cursor()
+        db_cur.execute(sql_prep, sql_data)
+        result = db_cur.fetchall()
+        db_conn.close()
         return result
     ###### WEBSITE ######
     #####################
