@@ -7,8 +7,12 @@ from pydantic import BaseModel
 # This data should be passed to the API via the (POST) request's body
 class SessionData(BaseModel):
     client_id: str
-    active_website: Optional[str] = None
+    client_ip: Optional[str] = None
+    client_os: str
     service: str
+    active_website: Optional[str] = None
+    # This is a list of the in-App notifications such as for Website Transfer
+    notifications: Optional[dict] = None
 
 
 class UserLogin(BaseModel):

@@ -1,7 +1,8 @@
-import sqlite3
 import json
-from sqlite3 import Error
+
 # Source: https://www.sqlitetutorial.net/sqlite-python/
+import sqlite3
+from sqlite3 import Error
 
 
 class DB:
