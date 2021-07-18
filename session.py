@@ -1,6 +1,7 @@
+import json
 import uuid
 import router
-import db
+import models_database
 from json import loads
 
 
@@ -9,22 +10,25 @@ class Session:
     @staticmethod
     def session_create(email, client_ip, client_os):
         if email is not None and email != "":
-            db_query = db.db_user_session(router.db_file, email)
-            session_obj = {
-                "session_id": uuid.uuid1(),
-                "client_id": db_query[0],
-                "client_ip": client_ip,
-                "client_os": client_os,
-                "email": email,
-                "service": db_query[1],
-                "active_website": "",
-                "notifications": db_query[2],
-                "promos": db_query[3]
-            }
             try:
-                session_file = router.app_home + '/' + 'session'
+                db_query = models_database.DB.db_user_session(router.db_file, email)
+                session_obj = {
+                    "session_id": str(uuid.uuid1()),
+                    "client_id": db_query['client_id'],
+                    "client_ip": client_ip,
+                    "client_os": client_os,
+                    "email": email,
+                    "service": db_query['service'],
+                    "active_website": "",
+                    "notifications": db_query['notifications'],
+                    "promos": db_query['promos']
+                }
+                # Code below may be deprecated depending on how user sessions will be managed
+                # Either with files or in memory. With the current setup it will managed in memory
+                '''session_file = router.app_home + '/' + 'session'
                 with open(session_file, 'a') as session_opened:
-                    session_opened.write(session_obj)
+                    json.dump(session_obj, session_opened)'''
+                return session_obj
             except OSError as e:
                 message = "[Client][Session][Error][01]: Couldn't create session file. Full error message: " + str(e)
                 router.send_to_logger("error", message, db_query[0])

@@ -1,6 +1,7 @@
 import json
 # Source: https://www.sqlitetutorial.net/sqlite-python/
 import sqlite3
+
 import router
 
 
@@ -72,10 +73,10 @@ class DB:
             return result
         except sqlite3.Error as e:
             message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
+            router.send_to_logger("error", message, client_id=None, client_email=None)
         except OSError as e:
             message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
+            router.send_to_logger("error", message, client_id=None, client_email=None)
 
     @staticmethod
     def db_user_add(db_file, client_id, client_key, email, name, service, notifications, promos):
@@ -90,10 +91,10 @@ class DB:
             return True
         except sqlite3.Error as e:
             message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
+            router.send_to_logger("error", message, client_id=None, client_email=None)
         except OSError as e:
             message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
+            router.send_to_logger("error", message, client_id=None, client_email=None)
 
     @staticmethod
     def db_user_get(db_file, client_key, email):
@@ -133,12 +134,11 @@ class DB:
             db_cur = db_conn.cursor()
             db_cur.execute(sql_prep, sql_data)
             result = db_cur.fetchall()
-
             result_dict = {
-                "client_id": result[0],
-                "service": result[1],
-                "notifications": result[2],
-                "promos": result[3]
+                "client_id": result[0][0],
+                "service": result[0][1],
+                "notifications": result[0][2],
+                "promos": result[0][3]
             }
             return result_dict
         except sqlite3.Error as e:
@@ -147,7 +147,6 @@ class DB:
         except OSError as e:
             message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
             router.send_to_logger("error", message)
-
 
     @staticmethod
     def db_user_all(db_file):
@@ -178,10 +177,8 @@ class DB:
             message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
             router.send_to_logger("error", message)
 
-
     ###### USERS ######
     ###################
-
 
     #####################
     ###### WEBSITE ######
@@ -215,21 +212,20 @@ class DB:
         db_conn = DB.db_conn_start(db_file)
         db_cur = db_conn.cursor()
         db_cur.execute(sql_prep)
-        columns = list(map(lambda x: x[0], db_cur.description))
-        data = db_cur.fetchall()
-
-        # Here we transform the data into JSON format
-        temp_dict = {}
-        result = {}
-        for entry in range(len(data)):
-            for index in range(len(columns)):
-                item = data[entry]
-                key = columns[index]
-                temp_dict[key] = item[index]
-            result[entry] = json.dumps(temp_dict, indent=4, separators=('\n', ','))
-        # The "result" is a dictionary of dictionaries.
-        # Each dictionary contains the keys and values from the "website" table
-        return result
+        result = db_cur.fetchall()
+        db_conn.close()
+        result_dict = {}
+        for index, entry in enumerate(result):
+            temp_dict = {
+                "website_id": entry[0],
+                "client_id": entry[1],
+                "domain": entry[2],
+                "domain_exp": entry[3],
+                "certificate": entry[4],
+                "cert_exp": entry[5]
+            }
+            result_dict[index] = temp_dict
+        return result_dict
 
     @staticmethod
     def db_site_user(db_file, client_id):
@@ -240,7 +236,18 @@ class DB:
         db_cur.execute(sql_prep, sql_data)
         result = db_cur.fetchall()
         db_conn.close()
-        return result
+        result_dict = {}
+        for index, entry in enumerate(result):
+            temp_dict = {
+                "website_id": entry[0],
+                "client_id": entry[1],
+                "domain": entry[2],
+                "domain_exp": entry[3],
+                "certificate": entry[4],
+                "cert_exp": entry[5]
+            }
+            result_dict[index] = temp_dict
+        return result_dict
     ###### WEBSITE ######
     #####################
 

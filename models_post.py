@@ -46,7 +46,6 @@ class Website(BaseModel):
 
 
 class WebsiteSearch(BaseModel):
-    client_id: str
     domain: str
 
 
