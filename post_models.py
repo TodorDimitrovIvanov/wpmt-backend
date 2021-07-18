@@ -21,13 +21,14 @@ class UserLogin(BaseModel):
 
 
 class User(BaseModel):
-    client_id: str
-    client_key: str
-    email: str
     name: str
+    email: str
+    password: str
     service: str
-    notifications: Optional[str] = False
-    icon: Optional[str] = None
+    country: str
+    locale: str
+    notifications: Optional[int] = 1
+    promos: Optional[int] = 1
 
 
 class UserSearch(BaseModel):

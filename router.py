@@ -1,9 +1,16 @@
-import socket
+from fastapi import FastAPI, HTTPException, Request
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.backends import default_backend
+import requests
+import json
+import base64
 
-from fastapi import FastAPI, HTTPException
-from file import File
-from db import DB
-from session import Session
+# Custom modules
+import file
+import db
+import session
 # These are POST body models that the API endpoints expect to receive
 import post_models
 
@@ -21,50 +28,71 @@ app = FastAPI()
 global user_session
 
 user_home = expanduser("~")
-db_source = "./dbs/wpmt.sql"
+db_source = "./dbs/wpmt-v1.1.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
+app_home = user_home + "/WPMT"
 
 # -------------------------
-# DUMMY DATA
-# We use these variables for testing the DB calls
-client_id = "EU-U-0000001"
-client_key = "UEU00001-K1"
-email = "test@domain.com"
-name = "Test Dummy"
-service = "Free"
-notifications = "Disabled"
-icon = "None"
-
-website_id = "UEU00002-W1"
-domain = "domain.com"
-domain_exp = "02-Jun-2021"
-certificate = "None"
-cert_exp = "None"
-# DUMMY DATA
+__cluster_name__ = "cluster-eu01.wpmt.tech"
+__cluster_url__ = "http://cluster-eu01.wpmt.tech"
+__cluster_logger_url__ = "http://cluster-eu01.wpmt.tech/log/save"
+__cluster_locale__ = "EU"
 # -------------------------
 
+# -------------------------
+__app_headers__ = {
+    'Host': 'cluster-eu01.wpmt.org',
+    'User-Agent': 'WPMT-Auth/1.0',
+    'Referer': 'http://cluster-eu01.wpmt.org/auth/verify',
+    'Content-Type': 'application/json'
+}
+# -------------------------
 
 # -------------------------
 # System section
 @app.get("/")
 def read_root():
-    if File.db_setup() and File.config_setup():
-        return {"Init: Success"}
+    if file.db_setup() and file.config_setup():
+        return {"Response: Success"}
     else:
-        return {"Init: Failure"}
+        return {"Response: Failure"}
 
 
 @app.post("/login")
-async def login(login_model: post_models.UserLogin):
+async def login(login_model: post_models.UserLogin, request: Request):
     # Source: https://jordanisaacs.github.io/fastapi-sessions/guide/getting_started/
     result_dic = login_model.dict()
-    result = DB.db_user_login(db_file, result_dic['email'], result_dic['client_key'])
 
-    if result != "[]" or "{}" & result is not None:
+    # Source: https://cryptography.io/en/latest/hazmat/primitives/asymmetric/rsa/#encryption
+    # Here we encrypt the client's email address using the public key the client provides
+    key_encoded = result_dic['client_key'].encode()
+    public_key_obj = load_pem_public_key(
+        key_encoded,
+        default_backend())
+    encrypted_message = base64.b64encode(public_key_obj.encrypt(
+        result_dic['email'].encode(),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None)
+    ))
+    # Then pass the bot the non/encrypted email to the WPMT Cluster API
+    # There the WPMT Cluster API retrieves the user's private key and decrypts the encrypted address
+    # If the decrypted email address matches what's stored in the WPMT Cluster DB the API returns a 200 OK
+    body = {
+        "email": result_dic['email'],
+        "encrypted_email": str(encrypted_message, 'utf-8')
+    }
+    send_request = requests.post(__cluster_url__ + "/auth/verify", data=json.dumps(body), headers=__app_headers__)
+    response = json.loads(send_request.content)
+    print("Response: ", response, "Type: ", type(response))
+    # Here we retrieve the client's IP address using the FastApi 'Request' class
+    # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
+    client_ip = request.client.host
+
+    if response['Response'] == "Success":
         import platform
-
-        result_list = result[0]
-        temp_sess = Session.session_create(client_id=result_list[0], client_ip=None, client_os=platform.system(), service=result_list[4], active_website=None, notifications=None)
+        temp_sess = session.session_create(result_dic['email'], client_ip, platform.system(), )
         # Here we set the global variable to the newly created object
         global user_session
         user_session = temp_sess
@@ -85,15 +113,28 @@ async def logout():
 # They provide utility for debugging the App and are a major security risk
 @app.get("/db/structure", status_code=200)
 def db_struct_get():
-    result = DB.db_struct_list(db_file)
+    result = db.DB.db_struct_list(db_file)
     return result
 
 
 @app.get("/db/init", status_code=200)
 def db_init():
-    DB.db_init(db_source, db_file)
-    return "DB Init Started"
+    db.DB.db_init(db_source, db_file)
+    return {
+        "Response": "DB Initialized"
+    }
 
+
+@staticmethod
+def send_to_logger(err_type, message, client_id: None, client_email: None):
+    global __app_headers__
+    body = {
+        "client_id": client_id,
+        "client_email": client_email,
+        "type": err_type,
+        "message": message
+    }
+    send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
 # SYSTEM section
 # -------------------------
 
@@ -103,21 +144,46 @@ def db_init():
 @app.post("/user/add")
 async def user_add(user: post_models.User):
     result_dic = user.dict()
-    DB.db_user_add(db_file, result_dic['client_id'], result_dic['client_key'], result_dic['email'],
-                   result_dic['name'], result_dic['service'], result_dic['notifications'], result_dic['icon'])
+
+    send_request = requests.post(__cluster_url__ + "/user/add", data=json.dumps(result_dic), headers=__app_headers__)
+    response = (send_request.content).decode()
+    response_dict = json.loads(response)
+
+    if db.db_user_add(db_file, response_dict['client_id'], response_dict['client_key'],
+                   result_dic['email'], result_dic['name'], result_dic['service'],
+                   result_dic['notifications'], result_dic['promos']):
+        return {
+            "Response": "Success",
+            "client_id": response_dict['client_id'],
+            "client_key": response_dict['client_key']
+        }
 
 
 @app.post("/user/get", status_code=200)
 def user_get(search: post_models.UserSearch):
     result_dic = search.dict()
-    result = DB.db_user_get(db_file, result_dic['client_key'], result_dic['email'])
-    return result
+    result = db.db_user_get(db_file, result_dic['client_key'], result_dic['email'])
+    # If such user exists
+    if len(result) >= 1:
+        return result
+    # If such user doesn't exist
+    else:
+        return {
+            "Response": "Not Found"
+        }
 
 
 @app.get("/user/all", status_code=200)
 def user_all():
-    result = DB.db_user_all(db_file)
-    return result
+    result = db.db_user_all(db_file)
+    # If there are any registered users
+    if len(result) >= 1:
+        return result
+    # If there are no registered user
+    else:
+        return {
+            "Response": "No users found"
+        }
 # USER section
 # -------------------------
 
@@ -134,7 +200,7 @@ def website_add(website: post_models.Website):
             raise HTTPException(statuscode=403)
         else:
             result_dic = website.dict()
-            DB.db_site_add(db_file, result_dic['website_id'], user_session['client_id'], result_dic['domain'],
+            db.db_site_add(db_file, result_dic['website_id'], user_session['client_id'], result_dic['domain'],
                            result_dic['domain_exp'], result_dic['certificate'], result_dic['certificate_exp'])
     except NameError:
         return HTTPException(status_code=403)
@@ -149,18 +215,18 @@ def website_get(search: post_models.WebsiteSearch):
             raise HTTPException(statuscode=403)
         else:
             result_dic = search.dict()
-            result = DB.db_site_get(db_file, user_session['client_id'], result_dic['domain'])
+            result = db.db_site_get(db_file, user_session['client_id'], result_dic['domain'])
             return result
     except NameError:
         return HTTPException(status_code=403)
-    # TODO: Add MySQL conn error handling
 
 
 # Note: This function should be removed as it could pose a security risk
 # It's currently used for debugging purposes
 @app.get("/website/all", status_code=200)
-def website_all():
-    result = DB.db_site_all(db_file, client_id)
+def website_all(search: post_models.WebsiteUserSearch):
+    post_data_dict = search.dict()
+    result = db.db_site_all(db_file, post_data_dict['client_id'])
     return result
 
 
@@ -170,7 +236,7 @@ async def website_user():
         global user_session
         if user_session is not None:
             print(user_session['client_id'])
-            result = DB.db_site_user(db_file, user_session['client_id'])
+            result = db.db_site_user(db_file, user_session['client_id'])
             return result
         else:
             raise HTTPException(status_code=403)
