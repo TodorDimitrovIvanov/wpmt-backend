@@ -57,61 +57,6 @@ def read_root():
         return {"Response: Failure"}
 
 
-@app.post("/login")
-async def login(login_model: models_post.UserLogin, request: Request):
-    # Source: https://jordanisaacs.github.io/fastapi-sessions/guide/getting_started/
-    result_dic = login_model.dict()
-
-    # Source: https://cryptography.io/en/latest/hazmat/primitives/asymmetric/rsa/#encryption
-    # Here we encrypt the client's email address using the public key the client provides
-    key_raw = result_dic['client_key'].replace('\\n', '\n')
-    key_encoded = key_raw.encode()
-    public_key_obj = load_pem_public_key(
-        key_encoded,
-        default_backend())
-    encrypted_message = public_key_obj.encrypt(
-        result_dic['email'].encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None)
-    )
-    # Then pass the bot the non/encrypted email to the WPMT Cluster API
-    # There the WPMT Cluster API retrieves the user's private key and decrypts the encrypted address
-    # If the decrypted email address matches what's stored in the WPMT Cluster DB the API returns a 200 OK
-    body = {
-        "email": result_dic['email'],
-        "encrypted_email": encrypted_message.hex()
-    }
-    send_request = requests.post(__cluster_url__ + "/auth/verify", data=json.dumps(body), headers=__app_headers__)
-    response = json.loads(send_request.content)
-    # Here we retrieve the client's IP address using the FastApi 'Request' class
-    # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
-    client_ip = request.client.host
-
-
-    if response['Response'] == "Success":
-        import platform
-        temp_sess = session.Session.session_create(result_dic['email'], client_ip, platform.system(), )
-        # Here we set the global variable to the newly created object
-        global user_session
-        user_session = temp_sess
-        return {
-            "Response": "Success"
-        }
-    else:
-        raise HTTPException(
-            status_code=403,
-            detail="Failed Authentication"
-        )
-
-
-@app.get("/logout")
-async def logout():
-    global user_session
-    user_session = None
-
-
 # Functions below are to be removed once development is completed
 # They provide utility for debugging the App and are a major security risk
 @app.get("/db/structure", status_code=200)
@@ -186,6 +131,61 @@ def user_all():
         return {
             "Response": "No users found"
         }
+
+
+@app.post("/user/login")
+async def login(login_model: models_post.UserLogin, request: Request):
+    # Source: https://jordanisaacs.github.io/fastapi-sessions/guide/getting_started/
+    result_dic = login_model.dict()
+
+    # Source: https://cryptography.io/en/latest/hazmat/primitives/asymmetric/rsa/#encryption
+    # Here we encrypt the client's email address using the public key the client provides
+    key_raw = result_dic['client_key'].replace('\\n', '\n')
+    key_encoded = key_raw.encode()
+    public_key_obj = load_pem_public_key(
+        key_encoded,
+        default_backend())
+    encrypted_message = public_key_obj.encrypt(
+        result_dic['email'].encode(),
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None)
+    )
+    # Then pass the bot the non/encrypted email to the WPMT Cluster API
+    # There the WPMT Cluster API retrieves the user's private key and decrypts the encrypted address
+    # If the decrypted email address matches what's stored in the WPMT Cluster DB the API returns a 200 OK
+    body = {
+        "email": result_dic['email'],
+        "encrypted_email": encrypted_message.hex()
+    }
+    send_request = requests.post(__cluster_url__ + "/auth/verify", data=json.dumps(body), headers=__app_headers__)
+    response = json.loads(send_request.content)
+    # Here we retrieve the client's IP address using the FastApi 'Request' class
+    # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
+    client_ip = request.client.host
+
+
+    if response['Response'] == "Success":
+        import platform
+        temp_sess = session.Session.session_create(result_dic['email'], client_ip, platform.system(), )
+        # Here we set the global variable to the newly created object
+        global user_session
+        user_session = temp_sess
+        return {
+            "Response": "Success"
+        }
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail="Failed Authentication"
+        )
+
+
+@app.get("/user/logout")
+async def logout():
+    global user_session
+    user_session = None
 # USER section
 # -------------------------
 
