@@ -37,8 +37,6 @@ class UserSearch(BaseModel):
 
 
 class Website(BaseModel):
-    client_id: str
-    website_id: str
     domain: str
     domain_exp: Optional[str] = None
     certificate: Optional[str] = None

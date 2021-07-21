@@ -1,3 +1,5 @@
+from json import JSONDecodeError
+
 from fastapi import FastAPI, HTTPException, Request
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from cryptography.hazmat.primitives import hashes
@@ -5,13 +7,12 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 import requests
 import json
+import sched, time
 
 # Custom modules
-import models_file
-import models_database
+from models import models_file, models_post, models_database
 import session
 # These are POST body models that the API endpoints expect to receive
-import models_post
 
 # This is an  ASGI (Asynchronous Server Gateway Interface) server on which the API runs
 # Source: https://www.uvicorn.org/
@@ -45,6 +46,9 @@ __app_headers__ = {
     'Referer': 'http://cluster-eu01.wpmt.org/auth/verify',
     'Content-Type': 'application/json'
 }
+
+scheduler = sched.scheduler(time.time, time.sleep)
+
 # -------------------------
 
 # -------------------------
@@ -67,7 +71,7 @@ def db_struct_get():
 
 @app.get("/db/init", status_code=200)
 def db_init():
-    models_database.DB.db_init(db_source, db_file)
+    models_database.DB.init(db_source, db_file)
     return {
         "Response": "DB Initialized"
     }
@@ -95,15 +99,24 @@ async def user_add(user: models_post.User):
     send_request = requests.post(__cluster_url__ + "/user/add", data=json.dumps(result_dic), headers=__app_headers__)
     response = (send_request.content).decode()
     response_dict = json.loads(response)
-
-    if models_database.DB.db_user_add(db_file, response_dict['client_id'], response_dict['client_key'],
-                                   result_dic['email'], result_dic['name'], result_dic['service'],
-                                   result_dic['notifications'], result_dic['promos']):
-        return {
-            "Response": "Success",
-            "client_id": response_dict['client_id'],
-            "client_key": response_dict['client_key']
-        }
+    if response_dict['Response'] == "Error":
+        raise HTTPException(
+            status_code=500,
+            detail=response_dict['Message']
+        )
+    else:
+        if models_database.DB.db_user_add(db_file, response_dict['client_id'], response_dict['client_key'],
+                                          result_dic['email'], result_dic['name'], result_dic['service'],
+                                          result_dic['notifications'], result_dic['promos']):
+            return {
+                "Response": "Success",
+                "client_id": response_dict['client_id'],
+                "client_key": response_dict['client_key']
+            }
+        else:
+            raise HTTPException(
+                error_code=500,
+                detail="Random Error Message")
 
 
 @app.post("/user/get", status_code=200)
@@ -160,26 +173,31 @@ async def login(login_model: models_post.UserLogin, request: Request):
         "encrypted_email": encrypted_message.hex()
     }
     send_request = requests.post(__cluster_url__ + "/auth/verify", data=json.dumps(body), headers=__app_headers__)
-    response = json.loads(send_request.content)
-    # Here we retrieve the client's IP address using the FastApi 'Request' class
-    # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
-    client_ip = request.client.host
+    try:
+        response = json.loads(send_request.content)
+        # scheduler.enter(600, 1, db_sync())
+        if response['Response'] == "Success":
+            import platform
+            client_ip = request.client.host
+            temp_sess = session.Session.session_create(result_dic['email'], client_ip, platform.system(), )
+            # Here we set the global variable to the newly created object
+            global user_session
+            user_session = temp_sess
+            return {
+                "Response": "Success"
+            }
+        else:
+            raise HTTPException(
+                status_code=403,
+                detail="Failed Authentication"
+            )
+    except JSONDecodeError:
+        # Here we retrieve the client's IP address using the FastApi 'Request' class
+        # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
+        message = "[Client][API][Error][01][" + client_ip + "]: Received an error from the Cluster API."
+        print("Message: ", message)
+        send_to_logger("error", message, client_id=None, client_email=result_dic['email'])
 
-
-    if response['Response'] == "Success":
-        import platform
-        temp_sess = session.Session.session_create(result_dic['email'], client_ip, platform.system(), )
-        # Here we set the global variable to the newly created object
-        global user_session
-        user_session = temp_sess
-        return {
-            "Response": "Success"
-        }
-    else:
-        raise HTTPException(
-            status_code=403,
-            detail="Failed Authentication"
-        )
 
 
 @app.get("/user/logout")
@@ -202,11 +220,23 @@ def website_add(website: models_post.Website):
             raise HTTPException(statuscode=403)
         else:
             result_dic = website.dict()
-            models_database.DB.db_site_add(db_file, result_dic['website_id'], user_session['client_id'], result_dic['domain'],
-                                        result_dic['domain_exp'], result_dic['certificate'], result_dic['certificate_exp'])
-            return {
-                "Response": "Success"
-            }
+            # Here we generate the ID of the website
+            new_site_num = int(models_database.DB.db_site_count_get(db_file, user_session['client_id']))
+            site_id = "SITE-" + str(new_site_num).zfill(4)
+
+            if models_database.DB.db_site_add(db_file, site_id, user_session['client_id'], result_dic['domain'],
+                                           result_dic['domain_exp'], result_dic['certificate'], result_dic['certificate_exp']):
+                return {
+                    "Response": "Success",
+                    "domain": result_dic['domain'],
+                    "site_id": site_id,
+                    "client_id": user_session['client_id']
+                }
+            else:
+                return {
+                    "Response": "Error",
+                    "Message": "[Cluster][DB][03]: Failed adding data to DB"
+                }
     except NameError:
         return HTTPException(status_code=403)
     # TODO: Add MySQL conn error handling
@@ -229,9 +259,8 @@ def website_get(search: models_post.WebsiteSearch):
 # Note: This function should be removed as it could pose a security risk
 # It's currently used for debugging purposes
 @app.get("/website/all", status_code=200)
-def website_all(search: models_post.WebsiteUserSearch):
-    post_data_dict = search.dict()
-    result = models_database.DB.db_site_all(db_file, post_data_dict['client_id'])
+def website_all():
+    result = models_database.DB.db_site_all(db_file)
     return result
 
 
