@@ -74,7 +74,6 @@ class DB:
             db_conn = DB.db_conn_start(db_file)
             db_cur = db_conn.cursor()
             if data is None:
-                print("SQL Query: ", request)
                 db_cur.execute(request)
                 db_conn.commit()
                 return True
