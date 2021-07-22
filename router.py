@@ -221,9 +221,13 @@ async def login(login_model: models_post.UserLogin, request: Request):
     except JSONDecodeError:
         # Here we retrieve the client's IP address using the FastApi 'Request' class
         # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
-        message = "[Client][API][Error][01]: Received an error from the Cluster API."
+        message = "[Client][API][Error][01]: Received an error from the Cluster API. Most likely failed authentication."
         print("Message: ", message)
         send_to_logger("error", message, client_id=None, client_email=result_dic['email'])
+        return {
+            "Response": "Error",
+            "Message": "Failed authentication attempt. Double-check email and public key. "
+        }
 
 
 
@@ -256,23 +260,23 @@ async def export():
 # This is done via the "session_data" parameter
 def website_add(website: models_post.Website):
     try:
-        global user_session
-        if user_session is None:
+        current_session = session_get()
+        if current_session is None:
             raise HTTPException(statuscode=403)
         else:
             result_dic = website.dict()
             # Here we generate the ID of the website
-            new_site_num = int(models_database.DB.db_site_count_get(db_file, user_session['client_id']))
-            website_id = "SITE-" + str(new_site_num + 1).zfill(4)
+            new_site_num = int(models_database.DB.db_site_count_get(db_file, current_session['client_id']))
+            website_id = current_session['client_id'] + ":SITE-" + str(new_site_num + 1).zfill(4)
 
-            if models_database.DB.db_site_add(db_file, website_id, user_session['client_id'], result_dic['domain'],
+            if models_database.DB.db_site_add(db_file, website_id, current_session['client_id'], result_dic['domain'],
                                            result_dic['domain_exp'], result_dic['certificate'], result_dic['certificate_exp']):
-                user_session['active_website'] = website_id
+                current_session['active_website'] = website_id
                 return {
                     "Response": "Success",
                     "domain": result_dic['domain'],
                     "website_id": website_id,
-                    "client_id": user_session['client_id']
+                    "client_id": current_session['client_id']
                 }
             else:
                 return {
@@ -289,7 +293,7 @@ def website_get(search: models_post.WebsiteSearch):
     try:
         global user_session
         if user_session is None:
-            raise HTTPException(statuscode=403)
+            raise HTTPException(status_code=403)
         else:
             result_dic = search.dict()
             result = models_database.DB.db_site_get(db_file, user_session['client_id'], result_dic['domain'])
@@ -380,7 +384,7 @@ async def account_add(post_data: models_post.Account):
             post_data_dict = post_data.dict()
             # Here we generate the ID of the account that's being added
             last_account_id = models_database.DB.account_count(db_file, current_session['active_website'])
-            account_id = "ACC-" + str(last_account_id + 1).zfill(4)
+            account_id = current_session['active_website'] + ":ACC-" + str(last_account_id + 1).zfill(4)
 
             result = models_database.DB.account_add(db_file, account_id,
                                                     current_session['active_website'], post_data_dict['type'],
