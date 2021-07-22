@@ -1,6 +1,6 @@
 # Setup
 
-Prerequisites:
+Requirements:
 
 ```
 Python version 3.9+
