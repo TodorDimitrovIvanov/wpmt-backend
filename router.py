@@ -28,7 +28,7 @@ app = FastAPI()
 global user_session
 
 user_home = expanduser("~")
-db_source = "./dbs/wpmt-v1.1.sql"
+db_source = "./dbs/wpmt-v1.2.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
 app_home = user_home + "/WPMT"
 
@@ -47,12 +47,15 @@ __app_headers__ = {
     'Content-Type': 'application/json'
 }
 
+# -------------------------
+# Daemon-like module for executing tasks at regular intervals
+# It will be used for syncing the state of the App DB
 scheduler = sched.scheduler(time.time, time.sleep)
-
 # -------------------------
 
 # -------------------------
-# System section
+# START of SYSTEM section
+# -------------------------
 @app.get("/")
 def read_root():
     if models_file.db_setup() and models_file.config_setup():
@@ -86,12 +89,14 @@ def send_to_logger(err_type, message, client_id: None, client_email: None):
         "message": message
     }
     send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
-# SYSTEM section
+# -------------------------
+# END of SYSTEM section
 # -------------------------
 
 
 # -------------------------
-# USER Section
+# START of USER Section
+# -------------------------
 @app.post("/user/add")
 async def user_add(user: models_post.User):
     result_dic = user.dict()
@@ -204,12 +209,26 @@ async def login(login_model: models_post.UserLogin, request: Request):
 async def logout():
     global user_session
     user_session = None
-# USER section
+
+
+@app.get("/user/export")
+async def export():
+    global user_session
+    if user_session is None:
+        raise HTTPException(statuscode=403)
+        return
+    else:
+        results = models_database.DB.db_user_export(db_file, user_session['client_id'])
+        return results
+
+# -------------------------
+# END of USER section
 # -------------------------
 
 
 # -------------------------
-# WEBSITE section
+# START of WEBSITE section
+# -------------------------
 @app.post("/website/add", status_code=200)
 # Here we check whether the user has logged in before we allow him to add a website
 # This is done via the "session_data" parameter
@@ -222,14 +241,15 @@ def website_add(website: models_post.Website):
             result_dic = website.dict()
             # Here we generate the ID of the website
             new_site_num = int(models_database.DB.db_site_count_get(db_file, user_session['client_id']))
-            site_id = "SITE-" + str(new_site_num).zfill(4)
+            website_id = "SITE-" + str(new_site_num + 1).zfill(4)
 
-            if models_database.DB.db_site_add(db_file, site_id, user_session['client_id'], result_dic['domain'],
+            if models_database.DB.db_site_add(db_file, website_id, user_session['client_id'], result_dic['domain'],
                                            result_dic['domain_exp'], result_dic['certificate'], result_dic['certificate_exp']):
+                user_session['active_website'] = website_id
                 return {
                     "Response": "Success",
                     "domain": result_dic['domain'],
-                    "site_id": site_id,
+                    "website_id": website_id,
                     "client_id": user_session['client_id']
                 }
             else:
@@ -276,10 +296,90 @@ async def website_user():
             raise HTTPException(status_code=403)
     except NameError:
         return HTTPException(status_code=403)
-    # TODO: Add exception handling for MySQL errors
-# WEBSITE section
+
+
+@app.post("/website/active/set")
+async def website_active_set(website_id: str):
+    global user_session
+    if user_session is not None:
+        user_session['active_website'] = website_id
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+
+@app.get("/website/active/get")
+async def website_active_get():
+    global user_session
+    if user_session is not None:
+        if user_session['active_website'] != "":
+            return user_session
+        else:
+            return {
+                "Response": "Error",
+                "Message": "There's no website currently active"
+            }
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+
+# -------------------------
+# END of WEBSITE section
 # -------------------------
 
+
+# -------------------------
+# START of ACCOUNTS section
+# -------------------------
+@app.post("/account/add", status_code=200)
+async def account_add(post_data: models_post.Account):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed")
+    else:
+        # Here we retrieve the the data provided from the POST request
+        post_data_dict = post_data.dict()
+        # Here we generate the ID of the account that's being added
+        last_account_id = int(models_database.DB.account_count(db_file, post_data_dict['website_id']))
+        account_id = "ACC-" + str(last_account_id + 1).zfill(4)
+
+        result = models_database.DB.account_add(post_data_dict['db_file'], account_id,
+                                                post_data_dict['website_id'], post_data_dict['type'],
+                                                post_data_dict['hostname'], post_data_dict['username'],
+                                                post_data_dict['password'], post_data_dict['port'],
+                                                post_data_dict['path'])
+        if result:
+            return {
+                "Response": "Success",
+                "account_id": account_id
+            }
+
+
+@app.post("/account/delete", status_code=200)
+async def account_delete(account_id: str):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        result = models_database.DB.account_delete(user_session['active_website'], account_id)
+        if result:
+            return {
+                "Response": "Successfully removed",
+                "account_id": account_id
+            }
+
+
+# -------------------------
+# END of ACCOUNTS section
+# -------------------------
 
 if __name__ == '__main__':
     # TODO: Add error handling for when the default port is not available

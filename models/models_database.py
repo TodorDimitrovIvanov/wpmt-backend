@@ -132,11 +132,11 @@ class DB:
             )
 
     @staticmethod
-    def db_sync_save(db_file, client_id, data):
+    def db_state_save(db_file, website_id, data):
         pass
 
     @staticmethod
-    def db_sync_save(db_file, client_id, data):
+    def db_state_compare(db_file, website_id):
         pass
 
     @staticmethod
@@ -161,21 +161,6 @@ class DB:
         sql_data = [email, client_key]
         temp = DB.request_data(db_file, sql_command, sql_data)
         return temp
-        # Deprecated code below:
-        '''try:
-            sql_data = [email, client_key]
-            db_conn = DB.db_conn_start(db_file)
-            db_cur = db_conn.cursor()
-            db_cur.execute(sql_prep, sql_data)
-            result = db_cur.fetchall()
-            db_conn.close()
-            return result
-        except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
-        except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)'''
 
     @staticmethod
     def db_user_add(db_file, client_id, client_key, email, name, service, notifications, promos):
@@ -186,21 +171,6 @@ class DB:
             return True
         else:
             return False
-        # Deprecated code below:
-        '''try:
-            sql_data = [client_id, client_key, email, name, service, notifications, promos]
-            db_conn = DB.db_conn_start(db_file)
-            db_cur = db_conn.cursor()
-            db_cur.execute(sql_prep, sql_data)
-            db_conn.commit()
-            db_conn.close()
-            return True
-        except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
-        except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)'''
 
     @staticmethod
     def db_user_get(db_file, client_key, email):
@@ -223,37 +193,6 @@ class DB:
             return {
                 "Response": "Not Found"
             }
-        '''
-        try:
-            sql_data = [client_key, email]
-            db_conn = DB.db_conn_start(db_file)
-            db_cur = db_conn.cursor()
-            db_cur.execute(sql_prep, sql_data)
-            result = db_cur.fetchall()
-            db_conn.close()
-            if len(result) >= 1:
-                # Here we transform the results into a json-like object
-                temp_dict = {
-                    "client_id": result[0][0],
-                    "client_key": result[0][1],
-                    "email": result[0][2],
-                    "name": result[0][3],
-                    "service": result[0][4],
-                    "notifications": result[0][5],
-                    "promos": result[0][6]
-                }
-                return temp_dict
-            else:
-                temp_dict = {
-                    "Response": "Not Found"
-                }
-                return temp_dict
-        except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
-        except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)'''
 
     @staticmethod
     def db_user_session(db_file, client_email):
@@ -287,30 +226,27 @@ class DB:
             }
             result_dict[index] = temp_dict
         return result_dict
-        '''try:
-            db_conn = DB.db_conn_start(db_file)
-            db_cur = db_conn.cursor()
-            db_cur.execute(sql_prep)
-            result = db_cur.fetchall()
-            result_dict = {}
-            for index, entry in enumerate(result):
-                temp_dict = {
-                    "client_id": entry[0],
-                    "client_key": entry[1],
-                    "email": entry[2],
-                    "name": entry[3],
-                    "service": entry[4],
-                    "notifications": entry[5],
-                    "promos": entry[6]
-                }
-                result_dict[index] = temp_dict
-            return result_dict
-        except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
-        except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)'''
+
+
+    @staticmethod
+    def db_user_export(db_file, client_id, website_id):
+        # Here we retrieve the available websites
+        sql_command = "SELECT users.client_id, website.website_id, website.domain FROM users " \
+                      "INNER JOIN website ON website.client_id = users.client_id WHERE users.client_id = ?"
+        sql_data = [client_id]
+        temp = DB.request_data(db_file, sql_command, sql_data)
+        print("DB User Export: ", temp)
+
+        sql_command2 = "SELECT website.website_id, accounts.account_id, accounts.hostname, " \
+                       "accounts.username, accounts.password, accounts.port, accounts.path FROM website " \
+                       "INNER JOIN website ON website.website_id = accounts.website_id WHERE website.website_id = ?"
+        sql_data2 = [website_id]
+        temp2 = DB.request_data(db_file, sql_command2, sql_data2)
+        print("DB User Export: ", temp2)
+
+        # TODO: Complete the export functionality by merging temp and temp2 into a dictionary
+        result_dict = {}
+        return result_dict
 
     ###### USERS ######
     ###################
@@ -326,11 +262,6 @@ class DB:
             return True
         else:
             return False
-        '''db_conn = DB.db_conn_start(db_file)
-        db_cur = db_conn.cursor()
-        db_cur.execute(sql_prep, sql_data)
-        db_conn.commit()
-        db_conn.close()'''
 
     @staticmethod
     def db_site_get(db_file, client_id, domain):
@@ -346,27 +277,7 @@ class DB:
             "cert_exp": temp[0][5]
         }
         return temp_dict
-        '''try:
-            db_conn = DB.db_conn_start(db_file)
-            db_cur = db_conn.cursor()
-            db_cur.execute(sql_prep, sql_data)
-            result = db_cur.fetchall()
-            db_conn.close()
-            temp_dict = {
-                "site_id": result[0][0],
-                "client_id": result[0][1],
-                "domain": result[0][2],
-                "domain_exp": result[0][3],
-                "certificate": result[0][4],
-                "cert_exp": result[0][5]
-            }
-            return temp_dict
-        except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
-        except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)'''
+
 
     @staticmethod
     def db_site_count_get(db_file, client_id):
@@ -374,20 +285,6 @@ class DB:
         sql_data = [client_id]
         temp = DB.request_data(db_file, sql_prep, sql_data)
         return temp[0][0]
-        '''try:
-            db_conn = DB.db_conn_start(db_file)
-            db_cur = db_conn.cursor()
-            db_cur.execute(sql_prep, sql_data)
-            result = db_cur.fetchall()
-            db_conn.close()
-            print("User Count Result: ", result[0][0], "Type: ", type(result[0][0]))
-            return result[0][0]
-        except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)
-        except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
-            router.send_to_logger("error", message)'''
 
     @staticmethod
     def db_site_all(db_file):
@@ -407,29 +304,11 @@ class DB:
             result_dict[index] = temp_dict
         return result_dict
 
-        '''db_conn = DB.db_conn_start(db_file)
-        db_cur = db_conn.cursor()
-        db_cur.execute(sql_prep)
-        result = db_cur.fetchall()
-        db_conn.close()
-        result_dict = {}
-        for index, entry in enumerate(result):
-            temp_dict = {
-                "website_id": entry[0],
-                "client_id": entry[1],
-                "domain": entry[2],
-                "domain_exp": entry[3],
-                "certificate": entry[4],
-                "cert_exp": entry[5]
-            }
-            result_dict[index] = temp_dict
-        return result_dict'''
-
     @staticmethod
     def db_site_user(db_file, client_id):
-        sql_prep = "SELECT * FROM website WHERE client_id=?"
+        sql_command = "SELECT * FROM website WHERE client_id=?"
         sql_data = [client_id]
-        temp = DB.request_data(db_file, sql_prep, sql_data)
+        temp = DB.request_data(db_file, sql_command, sql_data)
         result_dict = {}
         for index, entry in enumerate(temp):
             temp_dict = {
@@ -442,27 +321,60 @@ class DB:
             }
             result_dict[index] = temp_dict
         return result_dict
-
-        '''db_conn = DB.db_conn_start(db_file)
-        db_cur = db_conn.cursor()
-        db_cur.execute(sql_prep, sql_data)
-        result = db_cur.fetchall()
-        db_conn.close()
-        result_dict = {}
-        for index, entry in enumerate(result):
-            temp_dict = {
-                "website_id": entry[0],
-                "client_id": entry[1],
-                "domain": entry[2],
-                "domain_exp": entry[3],
-                "certificate": entry[4],
-                "cert_exp": entry[5]
-            }
-            result_dict[index] = temp_dict
-        return result_dict'''
     ###### WEBSITE ######
     #####################
 
+    #####################
+    ###### ACCOUNTS #####
+    @staticmethod
+    def account_add(db_file, account_id: str, website_id: str, acc_type: str, hostname: str, username:str, password: str, port: int, path: Optional[str]= "/"):
+        sql_command = "INSERT INTO accounts (account_id, website_id, type, hostname, username, password, port, path) VALUES (?,?,?,?,?,?,?);"
+        sql_data = [account_id, website_id, acc_type, hostname, username, password, port, path]
+        temp = DB.insert_data(db_file, sql_command, sql_data)
+        if temp:
+            return True
+        else:
+            return False
 
-def db_user_all():
-    return None
+    @staticmethod
+    def accounts_type_get(db_file, website_id, acc_type):
+        sql_command = "SELECT * FROM accounts WHERE website_id=? AND type=? "
+        sql_data = [website_id, acc_type]
+        temp = DB.request_data(db_file, sql_command, sql_data)
+        result_dict = {}
+        for index, entry in enumerate(temp):
+            temp_dict = {
+                "client_id": entry[0],
+                "client_key": entry[1],
+                "email": entry[2],
+                "name": entry[3],
+                "service": entry[4],
+                "notifications": entry[5],
+                "promos": entry[6]
+            }
+            result_dict[index] = temp_dict
+        return result_dict
+
+    @staticmethod
+    def account_count(db_file, website_id: str):
+        sql_command = "SELECT COUNT(*) FROM accounts WHERE website_id=?"
+        sql_data = [website_id]
+        temp = DB.request_data(db_file, sql_command, sql_data)
+        if temp is not None:
+            return temp[0][0]
+
+
+    @staticmethod
+    def account_delete(db_file, client_id, account_id: str):
+        sql_command = "DELETE FROM accounts WHERE account_id=? and website_id=?"
+        sql_data = [account_id, client_id]
+        # Don't mind the 'insert_data' function name here. It uses the "db_conn.commit()" method
+        # Which is used for inserting and deleting data from the DB and returns boolean
+        # Based on the outcome of the SQL command
+        temp = DB.insert_data(db_file, sql_command, sql_data)
+        if temp:
+            return True
+        else:
+            return False
+    ###### ACCOUNTS #####
+    #####################

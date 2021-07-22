@@ -64,10 +64,12 @@ class WordPress(BaseModel):
 
 
 class Account(BaseModel):
+    account_id: str
     website_id: str
     type: str
-    host: str
-    passw: str
+    hostname: str
+    username: str
+    password: str
     port: str
     path: Optional[str]
 
