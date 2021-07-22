@@ -80,6 +80,28 @@ def db_init():
     }
 
 
+@app.post("/db/list", status_code=200)
+def db_list(post_data: models_post.DBSearch):
+    post_data_dict = post_data.dict()
+    result = models_database.DB.db_table_list(db_file, post_data_dict['table_name'])
+    return result
+
+
+def session_get():
+    try:
+        global user_session
+        if user_session is not None:
+            return user_session
+        else:
+            return HTTPException(
+                status_code=403,
+                detail="Not Allowed"
+            )
+    except NameError as e:
+        message = "[Client][API][Error][02]: Protected request without authentication."
+        print(message)
+
+
 def send_to_logger(err_type, message, client_id: None, client_email: None):
     global __app_headers__
     body = {
@@ -199,7 +221,7 @@ async def login(login_model: models_post.UserLogin, request: Request):
     except JSONDecodeError:
         # Here we retrieve the client's IP address using the FastApi 'Request' class
         # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
-        message = "[Client][API][Error][01][" + client_ip + "]: Received an error from the Cluster API."
+        message = "[Client][API][Error][01]: Received an error from the Cluster API."
         print("Message: ", message)
         send_to_logger("error", message, client_id=None, client_email=result_dic['email'])
 
@@ -218,7 +240,7 @@ async def export():
         raise HTTPException(statuscode=403)
         return
     else:
-        results = models_database.DB.db_user_export(db_file, user_session['client_id'])
+        results = models_database.DB.db_user_export(db_file, user_session['client_id'], user_session['active_website'])
         return results
 
 # -------------------------
@@ -299,15 +321,21 @@ async def website_user():
 
 
 @app.post("/website/active/set")
-async def website_active_set(website_id: str):
+async def website_active_set(post_data: models_post.WebsiteID):
+    post_data_dict = post_data.dict()
     global user_session
     if user_session is not None:
-        user_session['active_website'] = website_id
+        sql_result = models_database.DB.db_site_get(db_file, user_session['client_id'], post_data_dict['domain'])
+        user_session['active_website'] = sql_result['website_id']
+        return {
+            "Response": "Success",
+        }
     else:
         raise HTTPException(
             status_code=403,
             detail="Not Allowed"
         )
+
 
 @app.get("/website/active/get")
 async def website_active_get():
@@ -336,32 +364,88 @@ async def website_active_get():
 # -------------------------
 @app.post("/account/add", status_code=200)
 async def account_add(post_data: models_post.Account):
-    global user_session
-    if user_session is None:
+    current_session = session_get()
+    if current_session is None:
         raise HTTPException(
             status_code=403,
             detail="Not Allowed")
     else:
-        # Here we retrieve the the data provided from the POST request
-        post_data_dict = post_data.dict()
-        # Here we generate the ID of the account that's being added
-        last_account_id = int(models_database.DB.account_count(db_file, post_data_dict['website_id']))
-        account_id = "ACC-" + str(last_account_id + 1).zfill(4)
+        if current_session['active_website'] == "" or None:
+            return{
+                "Response": "Error",
+                "Message": "The Session is missing an 'active_website'."
+            }
+        else:
+            # Here we retrieve the the data provided from the POST request
+            post_data_dict = post_data.dict()
+            # Here we generate the ID of the account that's being added
+            last_account_id = models_database.DB.account_count(db_file, current_session['active_website'])
+            account_id = "ACC-" + str(last_account_id + 1).zfill(4)
 
-        result = models_database.DB.account_add(post_data_dict['db_file'], account_id,
-                                                post_data_dict['website_id'], post_data_dict['type'],
-                                                post_data_dict['hostname'], post_data_dict['username'],
-                                                post_data_dict['password'], post_data_dict['port'],
-                                                post_data_dict['path'])
+            result = models_database.DB.account_add(db_file, account_id,
+                                                    current_session['active_website'], post_data_dict['type'],
+                                                    post_data_dict['hostname'], post_data_dict['username'],
+                                                    post_data_dict['password'], post_data_dict['port'],
+                                                    post_data_dict['path'])
+            if result:
+                return {
+                    "Response": "Success",
+                    "account_id": account_id
+                }
+            else:
+                return {
+                    "Response": "Error",
+                    "Message": "No records found!"
+                }
+
+
+
+@app.post("/account/type/get", status_code=200)
+async def account_type_get(post_data: models_post.AccountTypeGet):
+    # This function will return all accounts of certain type (SSH,FTP, etc.) for the specified website
+    post_data_dict = post_data.dict()
+    current_session = session_get()
+    if current_session is None or current_session['active_website'] == "":
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+        return
+    else:
+        result = models_database.DB.accounts_type_get(db_file, current_session['active_website'], post_data_dict['account_type'])
         if result:
+            return result
+        else:
             return {
-                "Response": "Success",
-                "account_id": account_id
+                "Response": "Error",
+                "Message": "No records found!"
+            }
+
+
+@app.post("/account/all", status_code=200)
+async def account_all():
+    current_session = session_get()
+    if current_session is None or current_session['active_website'] == "":
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+        return
+    else:
+        result = models_database.DB.accounts_all(db_file, current_session['active_website'])
+        if result:
+            return result
+        else:
+            return {
+                "Response": "Error",
+                "Message": "No records found!"
             }
 
 
 @app.post("/account/delete", status_code=200)
-async def account_delete(account_id: str):
+async def account_delete(post_data: models_post.AccountGet):
+    # This function expects to receive the account_id after the user is logged in and selects an account to be deleted.
+    post_data_dict = post_data.dict()
     global user_session
     if user_session is None:
         raise HTTPException(
@@ -369,11 +453,11 @@ async def account_delete(account_id: str):
             detail="Not Allowed"
         )
     else:
-        result = models_database.DB.account_delete(user_session['active_website'], account_id)
+        result = models_database.DB.account_delete(db_file, user_session['active_website'], post_data_dict['account_id'])
         if result:
             return {
                 "Response": "Successfully removed",
-                "account_id": account_id
+                "account_id": post_data_dict['account_id']
             }
 
 

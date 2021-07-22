@@ -26,7 +26,6 @@ class DB:
             db_conn = DB.db_conn_start(db_file)
             db_cur = db_conn.cursor()
             if data is None:
-                print("SQL Query: ", request)
                 result = db_cur.execute(request)
                 if result is not None:
                     temp = result.fetchall()
@@ -153,6 +152,26 @@ class DB:
         # And then we return the transformed json object
         return temp_dict
 
+
+    @staticmethod
+    def db_table_list(db_file, table_name: str):
+        sql_command = "SELECT * FROM " + table_name
+        # First we send a request to the DB
+        # Note error handling is managed by the request_data function
+        temp = DB.request_data(db_file, sql_command)
+        # Here we transform the results into a json-like object
+        temp_dict = {}
+        for index, item in enumerate(temp):
+            new_temp_dict = {}
+            for index2, column in enumerate(item):
+                new_temp_dict['Column[' + str(index2 + 1) + "]"] = column
+            temp_dict["Entry[" + str(index + 1) + "]"] = new_temp_dict
+
+        # And then we return the transformed json object
+        return temp_dict
+
+
+
     ###################
     ###### USERS ######
     @staticmethod
@@ -269,7 +288,7 @@ class DB:
         sql_data = [client_id, domain]
         temp = DB.request_data(db_file, sql_command, sql_data)
         temp_dict = {
-            "site_id": temp[0][0],
+            "website_id": temp[0][0],
             "client_id": temp[0][1],
             "domain": temp[0][2],
             "domain_exp": temp[0][3],
@@ -328,18 +347,46 @@ class DB:
     ###### ACCOUNTS #####
     @staticmethod
     def account_add(db_file, account_id: str, website_id: str, acc_type: str, hostname: str, username:str, password: str, port: int, path: Optional[str]= "/"):
-        sql_command = "INSERT INTO accounts (account_id, website_id, type, hostname, username, password, port, path) VALUES (?,?,?,?,?,?,?);"
-        sql_data = [account_id, website_id, acc_type, hostname, username, password, port, path]
-        temp = DB.insert_data(db_file, sql_command, sql_data)
-        if temp:
-            return True
+        print("DB Account Add: ", account_id)
+        if website_id is None or website_id == "":
+            return{
+                "Response": "Error",
+                "Message": "The session has no active websites"
+            }
         else:
-            return False
+            print("Website ID: ", website_id)
+            sql_command = "INSERT INTO accounts (account_id, website_id, type, hostname, username, password, port, path) VALUES (?,?,?,?,?,?,?,?);"
+            print("SQL Command: ", sql_command)
+            sql_data = [account_id, website_id, acc_type, hostname, username, password, port, path]
+            temp = DB.insert_data(db_file, sql_command, sql_data)
+            if temp:
+                return True
+            else:
+                return False
 
     @staticmethod
     def accounts_type_get(db_file, website_id, acc_type):
         sql_command = "SELECT * FROM accounts WHERE website_id=? AND type=? "
         sql_data = [website_id, acc_type]
+        temp = DB.request_data(db_file, sql_command, sql_data)
+        result_dict = {}
+        for index, entry in enumerate(temp):
+            temp_dict = {
+                "client_id": entry[0],
+                "client_key": entry[1],
+                "email": entry[2],
+                "name": entry[3],
+                "service": entry[4],
+                "notifications": entry[5],
+                "promos": entry[6]
+            }
+            result_dict[index] = temp_dict
+        return result_dict
+
+    @staticmethod
+    def accounts_all(db_file, website_id: str):
+        sql_command = "SELECT * FROM accounts WHERE website_id=?"
+        sql_data = [website_id]
         temp = DB.request_data(db_file, sql_command, sql_data)
         result_dict = {}
         for index, entry in enumerate(temp):
@@ -365,9 +412,9 @@ class DB:
 
 
     @staticmethod
-    def account_delete(db_file, client_id, account_id: str):
+    def account_delete(db_file, website_id: str, account_id: str):
         sql_command = "DELETE FROM accounts WHERE account_id=? and website_id=?"
-        sql_data = [account_id, client_id]
+        sql_data = [account_id, website_id]
         # Don't mind the 'insert_data' function name here. It uses the "db_conn.commit()" method
         # Which is used for inserting and deleting data from the DB and returns boolean
         # Based on the outcome of the SQL command

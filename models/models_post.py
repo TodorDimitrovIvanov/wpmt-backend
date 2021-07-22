@@ -15,6 +15,10 @@ class SessionData(BaseModel):
     notifications: Optional[dict] = None
 
 
+class DBSearch(BaseModel):
+    table_name: str
+
+
 class UserLogin(BaseModel):
     email: str
     client_key: str
@@ -47,6 +51,10 @@ class WebsiteSearch(BaseModel):
     domain: str
 
 
+class WebsiteID(BaseModel):
+    domain: str
+
+
 class WebsiteUserSearch(BaseModel):
     client_id: str
 
@@ -64,14 +72,20 @@ class WordPress(BaseModel):
 
 
 class Account(BaseModel):
-    account_id: str
-    website_id: str
     type: str
     hostname: str
     username: str
     password: str
     port: str
     path: Optional[str]
+
+
+class AccountTypeGet(BaseModel):
+    account_type: str
+
+
+class AccountGet(BaseModel):
+    account_id: str
 
 
 class Backup(BaseModel):
