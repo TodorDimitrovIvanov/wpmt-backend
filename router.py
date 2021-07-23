@@ -28,7 +28,7 @@ app = FastAPI()
 global user_session
 
 user_home = expanduser("~")
-db_source = "./dbs/wpmt-v1.2.sql"
+db_source = "./dbs/wpmt-v1.3.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
 app_home = user_home + "/WPMT"
 
@@ -285,7 +285,6 @@ def website_add(website: models_post.Website):
                 }
     except NameError:
         return HTTPException(status_code=403)
-    # TODO: Add MySQL conn error handling
 
 
 @app.post("/website/get", status_code=200)

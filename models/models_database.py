@@ -43,14 +43,14 @@ class DB:
                 else:
                     raise TypeError
         except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nRequest: " + request + "\nFull error message: " + str(e)
+            message = "[Local][DB][Error][02]: Database connection error. Full message: " + request + "\nFull error message: " + str(e)
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
             )
         except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't open DB. \nRequest: " + request + "\nFull error message: " + str(e)
+            message = "[Local][DB][Error][01]: Database can't be opened. Full message: " + request + "\nFull error message: " + str(e)
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -81,7 +81,7 @@ class DB:
                 db_conn.commit()
                 return True
         except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nRequest: " + request + "\nFull error message: " + str(e)
+            message = "[Local][DB][Error][02]: Database connection error. Full message: " + request + "\nFull error message: " + str(e)
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -89,7 +89,7 @@ class DB:
             )
             return False
         except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't open DB. \nRequest: " + request + "\nFull error message: " + str(e)
+            message = "[Local][DB][Error][01]: Database can't be opened. Full message: " + request + "\nFull error message: " + str(e)
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -97,7 +97,7 @@ class DB:
             )
             return False
         except TypeError as e:
-            message = "[Local][DB][Error][03]: Received None as a response from the DB. \nRequest: " + request + "\nFull error message: " + str(e)
+            message = "[Local][DB][Error][03]: Received None as a response from the DB. Full message: " + request + "\nFull error message: " + str(e)
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -116,14 +116,14 @@ class DB:
             cursor.executescript(sql_command)
             db_conn.close()
         except sqlite3.Error as e:
-            message = "[Local][DB][Error][02]: Couldn't connect to DB. \nFull error message: " + str(e)
+            message = "[Local][DB][Error][02]: Database connection error. Full message: " + str(e)
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
             )
         except OSError as e:
-            message = "[Local][DB][Error][01]: Couldn't opem to DB. \nFull error message: " + str(e)
+            message = "[Local][DB][Error][01]: Database can't be opened. Full message: " + str(e)
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -249,24 +249,54 @@ class DB:
 
     @staticmethod
     def db_user_export(db_file, client_id, website_id):
-        # Here we retrieve the available websites
+        # First we need to find the websites listed under the client_id
+        sql_command0 = "SELECT website_id FROM website WHERE client_id=?"
+        sql_data0 = [client_id]
+        temp0 = DB.request_data(db_file, sql_command0, sql_data0)
+        website_list = []
+        for item in range(len(temp0)):
+            website_list.append(temp0[item][0])
+        # So after generating website_id list we then retrieve data about each website
         sql_command = "SELECT users.client_id, website.website_id, website.domain FROM users " \
                       "INNER JOIN website ON website.client_id = users.client_id WHERE users.client_id = ?"
         sql_data = [client_id]
         temp = DB.request_data(db_file, sql_command, sql_data)
-        print("DB User Export: ", temp)
-
-        sql_command2 = "SELECT website.website_id, accounts.account_id, accounts.hostname, " \
-                       "accounts.username, accounts.password, accounts.port, accounts.path FROM website " \
-                       "INNER JOIN website ON website.website_id = accounts.website_id WHERE website.website_id = ?"
-        sql_data2 = [website_id]
-        temp2 = DB.request_data(db_file, sql_command2, sql_data2)
-        print("DB User Export: ", temp2)
-
-        # TODO: Complete the export functionality by merging temp and temp2 into a dictionary
-        result_dict = {}
-        return result_dict
-
+        # Here we start searching for all accounts listed under each of the website_id's from the list
+        final_dict = {}
+        for item in website_list:
+            sql_command2 = "SELECT website.website_id, accounts.account_id, accounts.type, accounts.hostname, " \
+                           "accounts.username, accounts.password, accounts.port, accounts.path FROM website " \
+                           "INNER JOIN accounts ON accounts.website_id = website.website_id WHERE website.website_id = ?"
+            sql_data2 = [item]
+            temp2 = DB.request_data(db_file, sql_command2, sql_data2)
+            if len(temp2) >= 1:
+                # Then we generate a dict full of the data for each account from the results
+                first_result_dict = {}
+                for index, entry in enumerate(temp2):
+                    temp_dict = {
+                        "website_id": entry[0],
+                        "type": entry[2],
+                        "domain": entry[3],
+                        "username": entry[4],
+                        "password": entry[5],
+                        "port": entry[6],
+                        "path": entry[7]
+                    }
+                    first_result_dict[entry[1]] = temp_dict
+                # And lastly, we start filling the final_dict we will return with all of the gathered data
+                for index, entry in enumerate(temp):
+                    temp_dict = {
+                        "client_id": entry[0],
+                        "domain": entry[2],
+                        "accounts": first_result_dict
+                    }
+                    final_dict[item] = temp_dict
+            else:
+                return {
+                    "Response": "Error",
+                    "Message": "No website is set as active!"
+                }
+        return final_dict
     ###### USERS ######
     ###################
 
@@ -287,15 +317,21 @@ class DB:
         sql_command = "SELECT * FROM website WHERE client_id=? AND domain=?"
         sql_data = [client_id, domain]
         temp = DB.request_data(db_file, sql_command, sql_data)
-        temp_dict = {
-            "website_id": temp[0][0],
-            "client_id": temp[0][1],
-            "domain": temp[0][2],
-            "domain_exp": temp[0][3],
-            "certificate": temp[0][4],
-            "cert_exp": temp[0][5]
-        }
-        return temp_dict
+        if len(temp) >= 1:
+            temp_dict = {
+                "website_id": temp[0][0],
+                "client_id": temp[0][1],
+                "domain": temp[0][2],
+                "domain_exp": temp[0][3],
+                "certificate": temp[0][4],
+                "cert_exp": temp[0][5]
+            }
+            return temp_dict
+        else:
+            return{
+                "Response": "Error",
+                "Message": "No records were found for the [" + domain + "] domain."
+            }
 
 
     @staticmethod
