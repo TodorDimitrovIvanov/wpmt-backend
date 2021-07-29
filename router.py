@@ -7,13 +7,12 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 import requests
 import json
-import sched, time
+import sched, time, datetime
 
 # Custom modules
 from models import models_file, models_post, models_database
 import session
 # These are POST body models that the API endpoints expect to receive
-
 # This is an  ASGI (Asynchronous Server Gateway Interface) server on which the API runs
 # Source: https://www.uvicorn.org/
 import uvicorn
@@ -53,9 +52,80 @@ __app_headers__ = {
 scheduler = sched.scheduler(time.time, time.sleep)
 # -------------------------
 
+
 # -------------------------
 # START of SYSTEM section
 # -------------------------
+
+#   --------------------
+#   START of State Class
+#   --------------------
+class State:
+
+    @staticmethod
+    def state_local_get():
+        # Here we directly use the "user_session" global variable
+        # As using the "session_get()" function returns the following error:
+        # 'staticmethod' object is not callable
+        global user_session
+        if user_session is None:
+            return {
+                "Response": "Error",
+                "Message": "Not Allowed"
+            }
+        else:
+            website_states = models_database.DB.db_user_export_websites(db_file, user_session['client_id'])
+            wordpress_states = {}
+            backup_states = {}
+            notification_states = {}
+            temp_time = datetime.datetime.utcnow()
+            now = temp_time.strftime("%b-%d-%Y-%H:%M")
+            if None not in [website_states, wordpress_states, backup_states, notification_states]:
+                result_dict = {
+                    "client_id": user_session['client_id'],
+                    "last_update": now,
+                    "website_states": website_states,
+                    "wordpress_states": wordpress_states,
+                    "backup_states": backup_states,
+                    "notification_states": notification_states
+                }
+            else:
+                return {
+                    "Response": "Error",
+                    "Message": "One of the states is not set!"
+                }
+        return result_dict
+
+    @staticmethod
+    def state_local_set():
+        current_session = session_get()
+        if current_session is None:
+            return {
+                "Response": "Error",
+                "Message": "Not Allowed"
+            }
+        else:
+            pass
+
+    @staticmethod
+    def state_cluster_get():
+        pass
+
+    @staticmethod
+    def state_compare(client_state: dict, cluster_state: dict):
+        # We're going to compare the value of 'last_update' key from the state object
+        # Using the method described here: https://stackoverflow.com/a/20365917
+        pass
+
+    @staticmethod
+    def state_sync():
+        pass
+#   --------------------
+#   END of State Class
+#   --------------------
+
+
+
 @app.get("/")
 def read_root():
     if models_file.db_setup() and models_file.config_setup():
@@ -87,6 +157,7 @@ def db_list(post_data: models_post.DBSearch):
     return result
 
 
+@staticmethod
 def session_get():
     try:
         global user_session
@@ -237,15 +308,28 @@ async def logout():
     user_session = None
 
 
-@app.get("/user/export")
-async def export():
+@app.get("/user/sync")
+async def sync():
     global user_session
     if user_session is None:
         raise HTTPException(statuscode=403)
         return
     else:
-        results = models_database.DB.db_user_export(db_file, user_session['client_id'], user_session['active_website'])
+        results = models_database.DB.db_user_export_websites(db_file, user_session['client_id'], user_session['active_website'])
         return results
+
+
+@app.get("/user/state/get", status_code=200)
+async def state_get():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed")
+    else:
+        temp = State.state_local_get()
+        return temp
+
 
 # -------------------------
 # END of USER section

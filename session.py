@@ -36,7 +36,9 @@ class Session:
     def session_invalidate(session_obj):
         session_obj = None
 
-    @staticmethod
+
+    # Deprecated code for handling sessions as files:
+    '''@staticmethod
     def session_get():
         session_file = router.app_home + '/' + 'session'
         try:
@@ -60,4 +62,5 @@ class Session:
 
     @staticmethod
     def session_set_active_website(website_id):
-        pass
+        pass'''
+

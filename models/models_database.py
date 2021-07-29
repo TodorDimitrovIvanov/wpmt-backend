@@ -10,13 +10,17 @@ class DB:
 
     @staticmethod
     def db_conn_start(db_file):
-        conn = None
         try:
             conn = sqlite3.connect(db_file)
+            if conn is not None:
+                return conn
         except sqlite3.Error as err:
-            print("ERROR: Couldn't connect to wpmt.db")
-        finally:
-            return conn
+            message = "[Local][DB][Error][01]: Database can't be opened. File expected location: " + db_file + ". Full error message: " + str(err)
+            router.send_to_logger("error", message, client_id=None, client_email=None)
+            raise HTTPException(
+                status_code=500,
+                detail=message
+            )
 
     @staticmethod
     def request_data(db_file, request: str, data: Optional[list] = None):
@@ -24,6 +28,7 @@ class DB:
             # Source: https://stackoverflow.com/questions/32372353/how-to-create-a-db-file-in-sqlite3-using-a-schema-file-from-within-python
             # Docs: https://docs.python.org/2/library/sqlite3.html#sqlite3.Cursor.executescript
             db_conn = DB.db_conn_start(db_file)
+            print("DB File: ", db_file)
             db_cur = db_conn.cursor()
             if data is None:
                 result = db_cur.execute(request)
@@ -129,14 +134,6 @@ class DB:
                 status_code=500,
                 detail=message
             )
-
-    @staticmethod
-    def db_state_save(db_file, website_id, data):
-        pass
-
-    @staticmethod
-    def db_state_compare(db_file, website_id):
-        pass
 
     @staticmethod
     def db_struct_list(db_file):
@@ -248,7 +245,7 @@ class DB:
 
 
     @staticmethod
-    def db_user_export(db_file, client_id, website_id):
+    def db_user_export_websites(db_file, client_id):
         # First we need to find the websites listed under the client_id
         sql_command0 = "SELECT website_id FROM website WHERE client_id=?"
         sql_data0 = [client_id]
@@ -257,7 +254,7 @@ class DB:
         for item in range(len(temp0)):
             website_list.append(temp0[item][0])
         # So after generating website_id list we then retrieve data about each website
-        sql_command = "SELECT users.client_id, website.website_id, website.domain FROM users " \
+        sql_command = "SELECT website.website_id, website.domain FROM users " \
                       "INNER JOIN website ON website.client_id = users.client_id WHERE users.client_id = ?"
         sql_data = [client_id]
         temp = DB.request_data(db_file, sql_command, sql_data)
@@ -286,8 +283,7 @@ class DB:
                 # And lastly, we start filling the final_dict we will return with all of the gathered data
                 for index, entry in enumerate(temp):
                     temp_dict = {
-                        "client_id": entry[0],
-                        "domain": entry[2],
+                        "domain": entry[1],
                         "accounts": first_result_dict
                     }
                     final_dict[item] = temp_dict
