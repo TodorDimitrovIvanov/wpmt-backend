@@ -7,11 +7,12 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 import requests
 import json
+import uuid
 import sched, time, datetime
+
 
 # Custom modules
 from models import models_file, models_post, models_database
-import session
 # These are POST body models that the API endpoints expect to receive
 # This is an  ASGI (Asynchronous Server Gateway Interface) server on which the API runs
 # Source: https://www.uvicorn.org/
@@ -32,9 +33,9 @@ db_file = user_home + "/WPMT/db/wpmt.db"
 app_home = user_home + "/WPMT"
 
 # -------------------------
-__cluster_name__ = "cluster-eu01.wpmt.tech"
-__cluster_url__ = "http://cluster-eu01.wpmt.tech"
-__cluster_logger_url__ = "http://cluster-eu01.wpmt.tech/log/save"
+__cluster_name__ = "cluster-eu01.wpmt.org"
+__cluster_url__ = "http://cluster-eu01.wpmt.org"
+__cluster_logger_url__ = "http://cluster-eu01.wpmt.org/log/save"
 __cluster_locale__ = "EU"
 # -------------------------
 
@@ -125,6 +126,44 @@ class State:
 #   --------------------
 
 
+#   --------------------
+#   START of Session Class
+#   --------------------
+class Session:
+
+    @staticmethod
+    def session_create(email, client_ip, client_os):
+        if email is not None and email != "":
+            try:
+                db_query = models_database.DB.db_user_session(db_file, email)
+                session_obj = {
+                    "session_id": str(uuid.uuid1()),
+                    "client_id": db_query['client_id'],
+                    "client_ip": client_ip,
+                    "client_os": client_os,
+                    "email": email,
+                    "service": db_query['service'],
+                    "active_website": "",
+                    "notifications": db_query['notifications'],
+                    "promos": db_query['promos']
+                }
+                # Code below may be deprecated depending on how user sessions will be managed
+                # Either with files or in memory. With the current setup it will managed in memory
+                '''session_file = router.app_home + '/' + 'session'
+                with open(session_file, 'a') as session_opened:
+                    json.dump(session_obj, session_opened)'''
+                return session_obj
+            except OSError as e:
+                message = "[Client][Session][Error][01]: Couldn't create session file. Full error message: " + str(e)
+                send_to_logger("error", message, db_query[0])
+
+    @staticmethod
+    def session_invalidate(session_obj):
+        session_obj = None
+#   --------------------
+#   END of Session Class
+#   --------------------
+
 
 @app.get("/")
 def read_root():
@@ -157,7 +196,6 @@ def db_list(post_data: models_post.DBSearch):
     return result
 
 
-@staticmethod
 def session_get():
     try:
         global user_session
@@ -277,7 +315,7 @@ async def login(login_model: models_post.UserLogin, request: Request):
         if response['Response'] == "Success":
             import platform
             client_ip = request.client.host
-            temp_sess = session.Session.session_create(result_dic['email'], client_ip, platform.system(), )
+            temp_sess = Session.session_create(result_dic['email'], client_ip, platform.system(), )
             # Here we set the global variable to the newly created object
             global user_session
             user_session = temp_sess
