@@ -289,27 +289,28 @@ async def login(login_model: models_post.UserLogin, request: Request):
 
     # Source: https://cryptography.io/en/latest/hazmat/primitives/asymmetric/rsa/#encryption
     # Here we encrypt the client's email address using the public key the client provides
-    key_raw = result_dic['client_key'].replace('\\n', '\n')
-    key_encoded = key_raw.encode()
-    public_key_obj = load_pem_public_key(
-        key_encoded,
-        default_backend())
-    encrypted_message = public_key_obj.encrypt(
-        result_dic['email'].encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None)
-    )
-    # Then pass the bot the non/encrypted email to the WPMT Cluster API
-    # There the WPMT Cluster API retrieves the user's private key and decrypts the encrypted address
-    # If the decrypted email address matches what's stored in the WPMT Cluster DB the API returns a 200 OK
-    body = {
-        "email": result_dic['email'],
-        "encrypted_email": encrypted_message.hex()
-    }
-    send_request = requests.post(__cluster_url__ + "/auth/verify", data=json.dumps(body), headers=__app_headers__)
     try:
+        key_raw = result_dic['client_key'].replace('\\n', '\n')
+        key_encoded = key_raw.encode()
+        public_key_obj = load_pem_public_key(
+            key_encoded,
+            default_backend())
+        encrypted_message = public_key_obj.encrypt(
+            result_dic['email'].encode(),
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None)
+        )
+        # Then pass the bot the non/encrypted email to the WPMT Cluster API
+        # There the WPMT Cluster API retrieves the user's private key and decrypts the encrypted address
+        # If the decrypted email address matches what's stored in the WPMT Cluster DB the API returns a 200 OK
+        body = {
+            "email": result_dic['email'],
+            "encrypted_email": encrypted_message.hex()
+        }
+        send_request = requests.post(__cluster_url__ + "/auth/verify", data=json.dumps(body), headers=__app_headers__)
+
         response = json.loads(send_request.content)
         # scheduler.enter(600, 1, db_sync())
         if response['Response'] == "Success":
@@ -330,13 +331,22 @@ async def login(login_model: models_post.UserLogin, request: Request):
     except JSONDecodeError:
         # Here we retrieve the client's IP address using the FastApi 'Request' class
         # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
-        message = "[Client][API][Error][01]: Received an error from the Cluster API. Most likely failed authentication."
+        message = "[Client][API][Error][02]: Received an error from the Cluster API. Most likely failed authentication."
         print("Message: ", message)
         send_to_logger("error", message, client_id=None, client_email=result_dic['email'])
         return {
             "Response": "Error",
             "Message": "Failed authentication attempt. Double-check email and public key. "
         }
+    except ValueError as err:
+        message = "[Client][API][Error][01]: The provided key is malformed and can't be loaded. Full Error: " + str(err)
+        print("Message: ", message)
+        send_to_logger("error", message, client_id=None, client_email=result_dic['email'])
+        return {
+            "Response": "Error",
+            "Message": "The provided key is corrupted or not in the correct format."
+        }
+
 
 
 
@@ -359,15 +369,19 @@ async def sync():
 
 @app.get("/user/state/get", status_code=200)
 async def state_get():
-    global user_session
-    if user_session is None:
+    try:
+        global user_session
+        if user_session is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Not Allowed")
+        else:
+            temp = State.state_local_get()
+            return temp
+    except NameError as err:
         raise HTTPException(
             status_code=403,
             detail="Not Allowed")
-    else:
-        temp = State.state_local_get()
-        return temp
-
 
 # -------------------------
 # END of USER section

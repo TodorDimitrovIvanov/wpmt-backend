@@ -260,38 +260,34 @@ class DB:
         temp = DB.request_data(db_file, sql_command, sql_data)
         # Here we start searching for all accounts listed under each of the website_id's from the list
         final_dict = {}
-        for item in website_list:
+        for index, item in enumerate(website_list):
             sql_command2 = "SELECT website.website_id, accounts.account_id, accounts.type, accounts.hostname, " \
                            "accounts.username, accounts.password, accounts.port, accounts.path FROM website " \
                            "INNER JOIN accounts ON accounts.website_id = website.website_id WHERE website.website_id = ?"
             sql_data2 = [item]
             temp2 = DB.request_data(db_file, sql_command2, sql_data2)
+            # Next we check whether there are results from the mongo request
+            # And if yes
             if len(temp2) >= 1:
-                # Then we generate a dict full of the data for each account from the results
-                first_result_dict = {}
-                for index, entry in enumerate(temp2):
+                # We generate a dict full of the data for each account from the results
+                second_result_dict = {}
+                for index2, entry in enumerate(temp2):
                     temp_dict = {
-                        "website_id": entry[0],
-                        "type": entry[2],
                         "domain": entry[3],
+                        "type": entry[2],
                         "username": entry[4],
                         "password": entry[5],
                         "port": entry[6],
                         "path": entry[7]
                     }
-                    first_result_dict[entry[1]] = temp_dict
-                # And lastly, we start filling the final_dict we will return with all of the gathered data
-                for index, entry in enumerate(temp):
-                    temp_dict = {
-                        "domain": entry[1],
-                        "accounts": first_result_dict
-                    }
-                    final_dict[item] = temp_dict
-            else:
-                return {
-                    "Response": "Error",
-                    "Message": "No website is set as active!"
+                    second_result_dict[entry[1]] = temp_dict
+                    final_dict[entry[0]] = second_result_dict
+            # If not then we create an empty dictionary object
+            if len(temp2) <= 1:
+                first_result_dict = {
                 }
+                final_dict[item] = first_result_dict
+        # Lastly we return the final_dict which contains website_id's with account_id's
         return final_dict
     ###### USERS ######
     ###################
