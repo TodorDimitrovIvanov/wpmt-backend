@@ -453,3 +453,46 @@ class DB:
             return False
     ###### ACCOUNTS #####
     #####################
+
+    ######################
+    ###### WORDPRESS #####
+    @staticmethod
+    def wordpress_init(db_file, website_id: str, version: str, url: str, path: str):
+        sql_command = "INSERT INTO wordpress (website_id, url, path, version, plugins, themes, size, inodes) VALUES (?,?,?,?,?,?,?,?)"
+        sql_data = [website_id, url, path, version, {}, {}, "", ""]
+        temp = DB.insert_data(db_file, sql_command, sql_data)
+        if temp:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def wordpress_get(website_id: str):
+        pass
+
+    @staticmethod
+    def wordpress_set(website_id: str, url: str, version: str):
+        pass
+
+    @staticmethod
+    def wordpress_path_set(website_id: str, path: str):
+        pass
+
+    @staticmethod
+    def wordpress_plugins_set(website_id: str, plugins: dict):
+        pass
+
+    @staticmethod
+    def wordpress_themes_set(website_id: str, themes: dict):
+        pass
+
+    @staticmethod
+    def wordpress_size_set(website_id: str, size: str):
+        pass
+
+    @staticmethod
+    def wordpress_inodes_set(website_id: str, inodes: str):
+        pass
+
+    ###### WORDPRESS #####
+    ######################

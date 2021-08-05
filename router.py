@@ -40,10 +40,11 @@ __cluster_locale__ = "EU"
 # -------------------------
 
 # -------------------------
+__wpmt_php_client_url__ = ""
 __app_headers__ = {
     'Host': 'cluster-eu01.wpmt.org',
-    'User-Agent': 'WPMT-Auth/1.0',
-    'Referer': 'http://cluster-eu01.wpmt.org/auth/verify',
+    'User-Agent': 'WPMT-Client-API/1.0',
+    'Referer': 'http://localhost:13337/router.py',
     'Content-Type': 'application/json'
 }
 
@@ -213,6 +214,7 @@ def session_get():
 
 def send_to_logger(err_type, message, client_id: None, client_email: None):
     global __app_headers__
+    print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['client_email'])
     body = {
         "client_id": client_id,
         "client_email": client_email,
@@ -603,6 +605,29 @@ async def account_delete(post_data: models_post.AccountGet):
 # -------------------------
 # END of ACCOUNTS section
 # -------------------------
+
+# -------------------------
+# START of WORDPRESS section
+# -------------------------
+
+
+@app.post("/wordpress/link", status_code=200)
+async def wordpress_link(post_model: models_post.WordPressLink):
+    post_data_dict = post_model.dict()
+    pass
+
+
+@app.post("/wordpress/init", status_code=200)
+async def wordpress_init(post_model: models_post.WordPressInit):
+    post_data_dict = post_model.dict()
+    pass
+
+# -------------------------
+# START of WORDPRESS section
+# -------------------------
+
+
+
 
 if __name__ == '__main__':
     # TODO: Add error handling for when the default port is not available

@@ -88,6 +88,16 @@ class AccountGet(BaseModel):
     account_id: str
 
 
+class WordPressInit(BaseModel):
+    website_id: str
+
+
+class WordPressLink(BaseModel):
+    website_id: str
+    account_id: str
+
+
+
 class Backup(BaseModel):
     website_id: str
     backup_id: str

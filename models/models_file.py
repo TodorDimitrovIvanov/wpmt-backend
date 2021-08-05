@@ -12,14 +12,13 @@ class File:
                 config_file = open(join(home, 'WPMT', 'config', 'config.json'), 'w')
                 config_file.write('')
                 config_file.close()
+                return True
             except IOError as err:
                 # TODO: Add a Logger function which saves the issue
                 print("ERROR: Couldn't create config.json")
                 return False
             except:
                 return False
-            finally:
-                return True
         else:
             return True
 
@@ -32,14 +31,13 @@ class File:
                 db_file = open(join(home, 'WPMT', 'db', 'wpmt.db'), 'w')
                 db_file.write('')
                 db_file.close()
+                return True
             except IOError as err:
                 # TODO: Add a Logger function which saves the issue
                 print("ERROR: Couldn't create wpmt.db")
                 return False
             except:
                 return False
-            finally:
-                return True
         else:
             return True
 
