@@ -28,7 +28,6 @@ class DB:
             # Source: https://stackoverflow.com/questions/32372353/how-to-create-a-db-file-in-sqlite3-using-a-schema-file-from-within-python
             # Docs: https://docs.python.org/2/library/sqlite3.html#sqlite3.Cursor.executescript
             db_conn = DB.db_conn_start(db_file)
-            print("DB File: ", db_file)
             db_cur = db_conn.cursor()
             if data is None:
                 result = db_cur.execute(request)
@@ -273,18 +272,25 @@ class DB:
                 second_result_dict = {}
                 for index2, entry in enumerate(temp2):
                     temp_dict = {
-                        "domain": entry[3],
                         "type": entry[2],
                         "username": entry[4],
                         "password": entry[5],
                         "port": entry[6],
                         "path": entry[7]
                     }
+                    second_result_dict["domain"] = entry[3]
                     second_result_dict[entry[1]] = temp_dict
                     final_dict[entry[0]] = second_result_dict
             # If not then we create an empty dictionary object
             if len(temp2) <= 1:
+                # Since there appear to be no accounts added to the website
+                # So we instead prepare a single SQL command for retrieving the website_id and domain.
+                sql_command_alt = "SELECT website.website_id, website.domain FROM website WHERE website.website_id = ?"
+                sql_data_alt = [item]
+                result = DB.request_data(db_file, sql_command_alt, sql_data_alt)
+                print("Result: ", result, type(result))
                 first_result_dict = {
+                    "domain": result[0][1]
                 }
                 final_dict[item] = first_result_dict
         # Lastly we return the final_dict which contains website_id's with account_id's

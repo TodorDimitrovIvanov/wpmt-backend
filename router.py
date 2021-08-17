@@ -76,6 +76,7 @@ class State:
                 "Message": "Not Allowed"
             }
         else:
+            print("Session Client ID: " + user_session['client_id'])
             website_states = models_database.DB.db_user_export_websites(db_file, user_session['client_id'])
             wordpress_states = {}
             backup_states = {}
@@ -86,6 +87,8 @@ class State:
                 result_dict = {
                     "client_id": user_session['client_id'],
                     "last_update": now,
+                    "session_id": user_session['session_id'],
+                    "client_ip": user_session['client_ip'],
                     "website_states": website_states,
                     "wordpress_states": wordpress_states,
                     "backup_states": backup_states,
@@ -208,16 +211,16 @@ def session_get():
                 detail="Not Allowed"
             )
     except NameError as e:
-        message = "[Client][API][Error][02]: Protected request without authentication."
+        message = "[Client][API][Error][02]: This protected request lacks authentication."
         print(message)
 
 
 def send_to_logger(err_type, message, client_id: None, client_email: None):
     global __app_headers__
-    print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['client_email'])
+    #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
     body = {
-        "client_id": client_id,
-        "client_email": client_email,
+        "client_id": user_session['client_id'],
+        "client_email": user_session['email'],
         "type": err_type,
         "message": message
     }
@@ -318,7 +321,7 @@ async def login(login_model: models_post.UserLogin, request: Request):
         if response['Response'] == "Success":
             import platform
             client_ip = request.client.host
-            temp_sess = Session.session_create(result_dic['email'], client_ip, platform.system(), )
+            temp_sess = Session.session_create(result_dic['email'], client_ip, platform.system())
             # Here we set the global variable to the newly created object
             global user_session
             user_session = temp_sess
@@ -383,7 +386,7 @@ async def state_get():
     except NameError as err:
         raise HTTPException(
             status_code=403,
-            detail="Not Allowed")
+            detail="[Client][API][Error][03]: Error Message: " + str(err))
 
 # -------------------------
 # END of USER section
