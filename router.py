@@ -217,6 +217,7 @@ def session_get():
 
 def send_to_logger(err_type, message, client_id: None, client_email: None):
     global __app_headers__
+    # TODO: Remove the parameters once its verified that the user_session is properly received
     #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
     body = {
         "client_id": user_session['client_id'],
@@ -616,8 +617,16 @@ async def account_delete(post_data: models_post.AccountGet):
 
 @app.post("/wordpress/link", status_code=200)
 async def wordpress_link(post_model: models_post.WordPressLink):
-    post_data_dict = post_model.dict()
-    pass
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        domain = user_session['active_website']
+        pass
 
 
 @app.post("/wordpress/init", status_code=200)
