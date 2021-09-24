@@ -278,7 +278,9 @@ class DB:
                         "port": entry[6],
                         "path": entry[7]
                     }
+                    # The domain is the first element that we add to the dictionary
                     second_result_dict["domain"] = entry[3]
+                    # Then we add a dictionary for each account found under the said domain
                     second_result_dict[entry[1]] = temp_dict
                     final_dict[entry[0]] = second_result_dict
             # If not then we create an empty dictionary object

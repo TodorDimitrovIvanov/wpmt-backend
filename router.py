@@ -110,11 +110,31 @@ class State:
                 "Message": "Not Allowed"
             }
         else:
+            # TODO: We're here in the development process
+            # Here we need to check whether the state on the Cluster is older than the current one
+            # If yes, then we push the local state to the Cluster
+            # If no, then we pull the remote state from the Cluster
             pass
 
     @staticmethod
     def state_cluster_get():
-        pass
+        current_session = session_get()
+        if current_session is None:
+            return {
+                "Response": "Error",
+                "Message": "Not Allowed"
+            }
+        else:
+            url = __cluster_url__ + "/state/get"
+            post_body = current_session['client_id']
+            result = requests.body(url, json={post_body})
+            if result:
+                return result
+            else:
+                return {
+                    "Response": "Error",
+                    "Message": "No state found for the [" + current_session['client_id'] + "] user"
+                }
 
     @staticmethod
     def state_compare(client_state: dict, cluster_state: dict):
@@ -382,6 +402,9 @@ async def state_get():
                 status_code=403,
                 detail="Not Allowed")
         else:
+            # TODO: We're up to here for the moment
+            # We need to add a post model for checking the state on the Cluster
+            # And it should have the client_id within it
             temp = State.state_local_get()
             return temp
     except NameError as err:
@@ -389,6 +412,23 @@ async def state_get():
             status_code=403,
             detail="[Client][API][Error][03]: Error Message: " + str(err))
 
+
+
+@app.get("/user/state/set", status_code=200)
+async def state_set():
+    try:
+        global user_session
+        if user_session is None:
+            raise HTTPException(
+                status_code=403,
+                detail="Not Allowed")
+        else:
+            temp = State.state_cluster_get()
+            return temp
+    except NameError as err:
+        raise HTTPException(
+            status_code=403,
+            detail="[Client][API][Error][03]: Error Message: " + str(err))
 # -------------------------
 # END of USER section
 # -------------------------
