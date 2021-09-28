@@ -28,7 +28,7 @@ app = FastAPI()
 global user_session
 
 user_home = expanduser("~")
-db_source = "./dbs/wpmt-v1.3.sql"
+db_source = "./dbs/wpmt-v1.4.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
 app_home = user_home + "/WPMT"
 
@@ -65,7 +65,7 @@ scheduler = sched.scheduler(time.time, time.sleep)
 class State:
 
     @staticmethod
-    def state_local_get():
+    def state_local_generate():
         # Here we directly use the "user_session" global variable
         # As using the "session_get()" function returns the following error:
         # 'staticmethod' object is not callable
@@ -76,7 +76,6 @@ class State:
                 "Message": "Not Allowed"
             }
         else:
-            print("Session Client ID: " + user_session['client_id'])
             website_states = models_database.DB.db_user_export_websites(db_file, user_session['client_id'])
             wordpress_states = {}
             backup_states = {}
@@ -101,8 +100,9 @@ class State:
                 }
         return result_dict
 
+
     @staticmethod
-    def state_local_set():
+    def state_local_get():
         current_session = session_get()
         if current_session is None:
             return {
@@ -110,17 +110,75 @@ class State:
                 "Message": "Not Allowed"
             }
         else:
-            pass
+            result = models_database.DB.db_user_state_get(db_file, current_session['client_id'])
+            return result
+
+    @staticmethod
+    def state_local_set(state_obj: dict):
+        current_session = session_get()
+        if current_session is None:
+            return {
+                "Response": "Error",
+                "Message": "Not Allowed"
+            }
+        else:
+            if state_obj is not None:
+                result = models_database.DB.db_user_state_set(db_file, state_obj)
+                if result:
+                    return {
+                        "Response": "Success",
+                        "Message": "State saved successfully"
+                    }
+                else:
+                    return {
+                        "Response": "Error",
+                        "Message": "State not saved"
+                    }
 
     @staticmethod
     def state_cluster_get():
-        pass
-
-    @staticmethod
-    def state_compare(client_state: dict, cluster_state: dict):
-        # We're going to compare the value of 'last_update' key from the state object
-        # Using the method described here: https://stackoverflow.com/a/20365917
-        pass
+        current_session = session_get()
+        if current_session is None:
+            return {
+                "Response": "Error",
+                "Message": "Not Allowed"
+            }
+        else:
+            url = __cluster_url__ + "/state/get"
+            result = requests.post(url, json={"client_id": current_session['client_id']})
+            if result:
+                current_cluster_state = result.json()
+                temp = State.state_local_get()
+                current_local_state = json.loads(temp[0][0])
+                cluster_update = datetime.datetime.strptime(current_cluster_state['last_update'], '%b-%d-%Y-%H:%M')
+                local_update = datetime.datetime.strptime(current_local_state['last_update'], '%b-%d-%Y-%H:%M')
+                # Here we check if the State on the Cluster is older
+                if cluster_update < local_update:
+                    # If the State is older:
+                    # TODO: We're here in the development process
+                    # Here we need to send a POST request to the Cluster and provide the local state
+                    # So the State on the server can be updated
+                    url2 = __cluster_url__ + "/state/set"
+                    json_data = {}
+                    json_data['state_obj'] = current_local_state
+                    result2 = requests.post(url2, json=json_data)
+                    if result2:
+                        return result2.json()
+                    else:
+                        message = "The State for user [" + current_session['client_id'] + "] was not properly set on the Cluster"
+                        return{
+                            "Response": "Failure",
+                            "Message": message
+                        }
+                else:
+                    result = State.state_local_set(current_cluster_state)
+                    result["Info"] = "Changed the local State"
+                    return result
+            else:
+                return {
+                    "Response": "Error",
+                    "Message": "No state found for the [" + current_session['client_id'] + "] user"
+                }
 
     @staticmethod
     def state_sync():
@@ -217,14 +275,19 @@ def session_get():
 
 def send_to_logger(err_type, message, client_id: None, client_email: None):
     global __app_headers__
-    #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
-    body = {
-        "client_id": user_session['client_id'],
-        "client_email": user_session['email'],
-        "type": err_type,
-        "message": message
-    }
-    send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
+    global user_session
+    if user_session is None:
+        print("User session not defined or something...")
+    else:
+        # TODO: Remove the parameters once its verified that the user_session is properly received
+        #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
+        body = {
+            "client_id": user_session['client_id'],
+            "client_email": user_session['email'],
+            "type": err_type,
+            "message": message
+        }
+        send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
 # -------------------------
 # END of SYSTEM section
 # -------------------------
@@ -361,15 +424,15 @@ async def logout():
     user_session = None
 
 
-@app.get("/user/sync")
+@app.get("/user/state/sync")
 async def sync():
     global user_session
     if user_session is None:
         raise HTTPException(statuscode=403)
         return
     else:
-        results = models_database.DB.db_user_export_websites(db_file, user_session['client_id'], user_session['active_website'])
-        return results
+        result = State.state_cluster_get()
+        return result
 
 
 @app.get("/user/state/get", status_code=200)
@@ -381,13 +444,47 @@ async def state_get():
                 status_code=403,
                 detail="Not Allowed")
         else:
+            # TODO: We're up to here for the moment
+            # We need to add a post model for checking the state on the Cluster
+            # And it should have the client_id within it
             temp = State.state_local_get()
-            return temp
+            #print("DEBUG: Router.state_get.DICT: ", temp[0][0])
+            if temp is None:
+                return{
+                    "Response": "Failure",
+                    "Message": "No State found"
+                }
+            else:
+                result = json.loads(temp[0][0])
+                return result
     except NameError as err:
         raise HTTPException(
             status_code=403,
             detail="[Client][API][Error][03]: Error Message: " + str(err))
 
+
+
+@app.get("/user/state/set", status_code=200)
+async def state_set():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed")
+    else:
+        temp = State.state_local_generate()
+        #print("DEBUG: Router.state_set.DICT: ", temp)
+        result = State.state_local_set(temp)
+        if result:
+            return {
+                "Response": "Success",
+                "State": temp
+            }
+        else:
+            return {
+                "Response": "Failure",
+                "Message": "The state was not properly saved within the DB"
+            }
 # -------------------------
 # END of USER section
 # -------------------------
@@ -616,8 +713,16 @@ async def account_delete(post_data: models_post.AccountGet):
 
 @app.post("/wordpress/link", status_code=200)
 async def wordpress_link(post_model: models_post.WordPressLink):
-    post_data_dict = post_model.dict()
-    pass
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        domain = user_session['active_website']
+        pass
 
 
 @app.post("/wordpress/init", status_code=200)

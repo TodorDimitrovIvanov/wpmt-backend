@@ -86,6 +86,7 @@ class DB:
                 return True
         except sqlite3.Error as e:
             message = "[Local][DB][Error][02]: Database connection error. Full message: " + request + "\nFull error message: " + str(e)
+            print("DEBUG: DB.insert_data.ERROR: ", str(e))
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -94,6 +95,7 @@ class DB:
             return False
         except OSError as e:
             message = "[Local][DB][Error][01]: Database can't be opened. Full message: " + request + "\nFull error message: " + str(e)
+            print("DEBUG: DB.insert_data.ERROR: ", str(e))
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -102,6 +104,7 @@ class DB:
             return False
         except TypeError as e:
             message = "[Local][DB][Error][03]: Received None as a response from the DB. Full message: " + request + "\nFull error message: " + str(e)
+            print("DEBUG: DB.insert_data.ERROR: ", str(e))
             router.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
@@ -278,7 +281,9 @@ class DB:
                         "port": entry[6],
                         "path": entry[7]
                     }
+                    # The domain is the first element that we add to the dictionary
                     second_result_dict["domain"] = entry[3]
+                    # Then we add a dictionary for each account found under the said domain
                     second_result_dict[entry[1]] = temp_dict
                     final_dict[entry[0]] = second_result_dict
             # If not then we create an empty dictionary object
@@ -295,6 +300,32 @@ class DB:
                 final_dict[item] = first_result_dict
         # Lastly we return the final_dict which contains website_id's with account_id's
         return final_dict
+
+    @staticmethod
+    def db_user_state_set(db_file, state_obj: dict):
+        json_obj = json.dumps(state_obj)
+        sql_command = "UPDATE users SET state=? WHERE client_id=?;"
+        sql_data = [json_obj, state_obj['client_id']]
+        temp = DB.insert_data(db_file, sql_command, sql_data)
+        if temp:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def db_user_state_get(db_file, client_id: str):
+        sql_command = "SELECT state FROM users WHERE client_id=?"
+        sql_data = [client_id]
+        temp = DB.request_data(db_file, sql_command, sql_data)
+        if temp:
+            return temp
+        else:
+            return {
+                "Response": "Error",
+                "Message": "No state found for the [" + client_id + "] client."
+            }
+
+
     ###### USERS ######
     ###################
 
