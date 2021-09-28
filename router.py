@@ -28,7 +28,7 @@ app = FastAPI()
 global user_session
 
 user_home = expanduser("~")
-db_source = "./dbs/wpmt-v1.3.sql"
+db_source = "./dbs/wpmt-v1.4.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
 app_home = user_home + "/WPMT"
 
@@ -65,7 +65,7 @@ scheduler = sched.scheduler(time.time, time.sleep)
 class State:
 
     @staticmethod
-    def state_local_get():
+    def state_local_generate():
         # Here we directly use the "user_session" global variable
         # As using the "session_get()" function returns the following error:
         # 'staticmethod' object is not callable
@@ -101,8 +101,9 @@ class State:
                 }
         return result_dict
 
+
     @staticmethod
-    def state_local_set():
+    def state_local_get():
         current_session = session_get()
         if current_session is None:
             return {
@@ -110,11 +111,30 @@ class State:
                 "Message": "Not Allowed"
             }
         else:
-            # TODO: We're here in the development process
-            # Here we need to check whether the state on the Cluster is older than the current one
-            # If yes, then we push the local state to the Cluster
-            # If no, then we pull the remote state from the Cluster
-            pass
+            result = models_database.DB.db_user_state_get(db_file, current_session['client_id'])
+            return result
+
+    @staticmethod
+    def state_local_set(state_obj: dict):
+        current_session = session_get()
+        if current_session is None:
+            return {
+                "Response": "Error",
+                "Message": "Not Allowed"
+            }
+        else:
+            if state_obj is not None:
+                result = models_database.DB.db_user_state_set(db_file, state_obj)
+                if result:
+                    return {
+                        "Response": "Success",
+                        "Message": "State saved successfully"
+                    }
+                else:
+                    return {
+                        "Response": "Error",
+                        "Message": "State not saved"
+                    }
 
     @staticmethod
     def state_cluster_get():
@@ -126,21 +146,23 @@ class State:
             }
         else:
             url = __cluster_url__ + "/state/get"
-            post_body = current_session['client_id']
-            result = requests.body(url, json={post_body})
+            result = requests.post(url, json={"client_id": current_session['client_id']})
             if result:
-                return result
+                current_cluster_state = result.json()
+                current_local_state = State.state_local_get()
+                # TODO: We're here in the development process
+                # Here we need to check whether the state on the Cluster is older than the current one
+                # If yes, then we push the local state to the Cluster
+                # If no, then we pull the remote state from the Cluster
+                if current_cluster_state['last_update'] < current_local_state['last_update']:
+                    return current_local_state
+                else:
+                    return current_cluster_state
             else:
                 return {
                     "Response": "Error",
                     "Message": "No state found for the [" + current_session['client_id'] + "] user"
                 }
-
-    @staticmethod
-    def state_compare(client_state: dict, cluster_state: dict):
-        # We're going to compare the value of 'last_update' key from the state object
-        # Using the method described here: https://stackoverflow.com/a/20365917
-        pass
 
     @staticmethod
     def state_sync():
@@ -237,15 +259,19 @@ def session_get():
 
 def send_to_logger(err_type, message, client_id: None, client_email: None):
     global __app_headers__
-    # TODO: Remove the parameters once its verified that the user_session is properly received
-    #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
-    body = {
-        "client_id": user_session['client_id'],
-        "client_email": user_session['email'],
-        "type": err_type,
-        "message": message
-    }
-    send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
+    global user_session
+    if user_session is None:
+        print("User session not defined or something...")
+    else:
+        # TODO: Remove the parameters once its verified that the user_session is properly received
+        #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
+        body = {
+            "client_id": user_session['client_id'],
+            "client_email": user_session['email'],
+            "type": err_type,
+            "message": message
+        }
+        send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
 # -------------------------
 # END of SYSTEM section
 # -------------------------
@@ -406,7 +432,9 @@ async def state_get():
             # We need to add a post model for checking the state on the Cluster
             # And it should have the client_id within it
             temp = State.state_local_get()
-            return temp
+            #print("DEBUG: Router.state_get.DICT: ", temp[0][0])
+            result = json.loads(temp[0][0])
+            return result
     except NameError as err:
         raise HTTPException(
             status_code=403,
@@ -416,19 +444,25 @@ async def state_get():
 
 @app.get("/user/state/set", status_code=200)
 async def state_set():
-    try:
-        global user_session
-        if user_session is None:
-            raise HTTPException(
-                status_code=403,
-                detail="Not Allowed")
-        else:
-            temp = State.state_cluster_get()
-            return temp
-    except NameError as err:
+    global user_session
+    if user_session is None:
         raise HTTPException(
             status_code=403,
-            detail="[Client][API][Error][03]: Error Message: " + str(err))
+            detail="Not Allowed")
+    else:
+        temp = State.state_local_generate()
+        #print("DEBUG: Router.state_set.DICT: ", temp)
+        result = State.state_local_set(temp)
+        if result:
+            return {
+                "Response": "Success",
+                "State": temp
+            }
+        else:
+            return {
+                "Response": "Failure",
+                "Message": "The state was not properly saved within the DB"
+            }
 # -------------------------
 # END of USER section
 # -------------------------
