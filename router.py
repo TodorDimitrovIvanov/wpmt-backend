@@ -76,7 +76,6 @@ class State:
                 "Message": "Not Allowed"
             }
         else:
-            print("Session Client ID: " + user_session['client_id'])
             website_states = models_database.DB.db_user_export_websites(db_file, user_session['client_id'])
             wordpress_states = {}
             backup_states = {}
@@ -162,11 +161,7 @@ class State:
                     url2 = __cluster_url__ + "/state/set"
                     json_data = {}
                     json_data['state_obj'] = current_local_state
-                    #print("DEBUG: State.state_cluster_get.DICT1: ", type(current_local_state), current_local_state)
-                    #json_data = json.dumps(current_local_state)
-                    #print("DEBUG: State.state_cluster_get.STR: ", type(json_data), json_data)
                     result2 = requests.post(url2, json=json_data)
-                    print("DEBUG: State.state_cluster_get.RESULT: ", result2)
                     if result2:
                         return result2.json()
                     else:
