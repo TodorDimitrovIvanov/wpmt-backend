@@ -149,15 +149,36 @@ class State:
             result = requests.post(url, json={"client_id": current_session['client_id']})
             if result:
                 current_cluster_state = result.json()
-                current_local_state = State.state_local_get()
-                # TODO: We're here in the development process
-                # Here we need to check whether the state on the Cluster is older than the current one
-                # If yes, then we push the local state to the Cluster
-                # If no, then we pull the remote state from the Cluster
-                if current_cluster_state['last_update'] < current_local_state['last_update']:
-                    return current_local_state
+                temp = State.state_local_get()
+                current_local_state = json.loads(temp[0][0])
+                cluster_update = datetime.datetime.strptime(current_cluster_state['last_update'], '%b-%d-%Y-%H:%M')
+                local_update = datetime.datetime.strptime(current_local_state['last_update'], '%b-%d-%Y-%H:%M')
+                # Here we check if the State on the Cluster is older
+                if cluster_update < local_update:
+                    # If the State is older:
+                    # TODO: We're here in the development process
+                    # Here we need to send a POST request to the Cluster and provide the local state
+                    # So the State on the server can be updated
+                    url2 = __cluster_url__ + "/state/set"
+                    json_data = {}
+                    json_data['state_obj'] = current_local_state
+                    #print("DEBUG: State.state_cluster_get.DICT1: ", type(current_local_state), current_local_state)
+                    #json_data = json.dumps(current_local_state)
+                    #print("DEBUG: State.state_cluster_get.STR: ", type(json_data), json_data)
+                    result2 = requests.post(url2, json=json_data)
+                    print("DEBUG: State.state_cluster_get.RESULT: ", result2)
+                    if result2:
+                        return result2.json()
+                    else:
+                        message = "The State for user [" + current_session['client_id'] + "] was not properly set on the Cluster"
+                        return{
+                            "Response": "Failure",
+                            "Message": message
+                        }
                 else:
-                    return current_cluster_state
+                    result = State.state_local_set(current_cluster_state)
+                    result["Info"] = "Changed the local State"
+                    return result
             else:
                 return {
                     "Response": "Error",
@@ -408,15 +429,15 @@ async def logout():
     user_session = None
 
 
-@app.get("/user/sync")
+@app.get("/user/state/sync")
 async def sync():
     global user_session
     if user_session is None:
         raise HTTPException(statuscode=403)
         return
     else:
-        results = models_database.DB.db_user_export_websites(db_file, user_session['client_id'], user_session['active_website'])
-        return results
+        result = State.state_cluster_get()
+        return result
 
 
 @app.get("/user/state/get", status_code=200)
@@ -433,8 +454,14 @@ async def state_get():
             # And it should have the client_id within it
             temp = State.state_local_get()
             #print("DEBUG: Router.state_get.DICT: ", temp[0][0])
-            result = json.loads(temp[0][0])
-            return result
+            if temp is None:
+                return{
+                    "Response": "Failure",
+                    "Message": "No State found"
+                }
+            else:
+                result = json.loads(temp[0][0])
+                return result
     except NameError as err:
         raise HTTPException(
             status_code=403,
