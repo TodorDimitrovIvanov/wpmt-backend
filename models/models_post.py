@@ -97,12 +97,12 @@ class WordPressLink(BaseModel):
     account_id: str
 
 
-
-class Backup(BaseModel):
+class BackupCreate(BaseModel):
     website_id: str
-    backup_id: str
-    size: str
-    date: str
-    path: str
-    host: str
+    account_id: str
+
+
+class BackupGet(BaseModel):
+    website_id: str
+
 

@@ -273,7 +273,7 @@ def session_get():
         print(message)
 
 
-def send_to_logger(err_type, message, client_id: None, client_email: None):
+def send_to_logger(err_type, message):
     global __app_headers__
     global user_session
     if user_session is None:
@@ -603,7 +603,7 @@ async def website_active_get():
 # -------------------------
 # START of ACCOUNTS section
 # -------------------------
-@app.post("/account/add", status_code=200)
+@app.post("/website/account/add", status_code=200)
 async def account_add(post_data: models_post.Account):
     current_session = session_get()
     if current_session is None:
@@ -641,7 +641,7 @@ async def account_add(post_data: models_post.Account):
 
 
 
-@app.post("/account/type/get", status_code=200)
+@app.post("/website/account/type/get", status_code=200)
 async def account_type_get(post_data: models_post.AccountTypeGet):
     # This function will return all accounts of certain type (SSH,FTP, etc.) for the specified website
     post_data_dict = post_data.dict()
@@ -663,7 +663,7 @@ async def account_type_get(post_data: models_post.AccountTypeGet):
             }
 
 
-@app.post("/account/all", status_code=200)
+@app.post("/website/account/all", status_code=200)
 async def account_all():
     current_session = session_get()
     if current_session is None or current_session['active_website'] == "":
@@ -683,7 +683,7 @@ async def account_all():
             }
 
 
-@app.post("/account/delete", status_code=200)
+@app.post("/website/account/delete", status_code=200)
 async def account_delete(post_data: models_post.AccountGet):
     # This function expects to receive the account_id after the user is logged in and selects an account to be deleted.
     post_data_dict = post_data.dict()
@@ -706,12 +706,43 @@ async def account_delete(post_data: models_post.AccountGet):
 # END of ACCOUNTS section
 # -------------------------
 
+
+
+# -------------------------
+# START of BACKUP section
+# -------------------------
+
+@app.post("/website/backup/create", status_code=200)
+async def backup_create(post_model: models_post.BackupCreate):
+    # The POST request should include a dictionary with the following:
+    # website_id - The ID of the website that's to be backed up
+    # account_id - The ID of the account that's going to be used for the backup
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        domain = user_session['active_website']
+        pass
+
+
+
+# -------------------------
+# END of BACKUP section
+# -------------------------
+
+
+
+
 # -------------------------
 # START of WORDPRESS section
 # -------------------------
 
 
-@app.post("/wordpress/link", status_code=200)
+@app.post("/wp/link", status_code=200)
 async def wordpress_link(post_model: models_post.WordPressLink):
     global user_session
     if user_session is None:
@@ -725,7 +756,7 @@ async def wordpress_link(post_model: models_post.WordPressLink):
         pass
 
 
-@app.post("/wordpress/init", status_code=200)
+@app.post("/wp/init", status_code=200)
 async def wordpress_init(post_model: models_post.WordPressInit):
     post_data_dict = post_model.dict()
     pass
