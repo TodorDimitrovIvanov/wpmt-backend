@@ -675,10 +675,33 @@ async def account_all():
             }
 
 
+@app.post("/website/account/get", status_code=200)
+async def account_get(post_data: models_post.AccountGet):
+    current_session = session_get()
+    if current_session is None or current_session['active_website'] == "":
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+        return
+    else:
+        post_data_dict = post_data.dict()
+        result = models_database.DB.account_get(db_file, user_session['active_website'], post_data_dict['account_id'])
+        if result:
+            return {
+                "Response": "Success",
+                "account": result
+            }
+        else:
+            return{
+                "Response": "Failure",
+                "Message": "Account not found"
+            }
+
+
 @app.post("/website/account/delete", status_code=200)
 async def account_delete(post_data: models_post.AccountGet):
     # This function expects to receive the account_id after the user is logged in and selects an account to be deleted.
-    post_data_dict = post_data.dict()
     global user_session
     if user_session is None:
         raise HTTPException(
@@ -686,6 +709,7 @@ async def account_delete(post_data: models_post.AccountGet):
             detail="Not Allowed"
         )
     else:
+        post_data_dict = post_data.dict()
         result = models_database.DB.account_delete(db_file, user_session['active_website'], post_data_dict['account_id'])
         if result:
             return {
@@ -737,8 +761,8 @@ async def wordpress_link(post_model: models_post.WordPressLink):
         pass
 
 
-@app.post("/wp/init", status_code=200)
-async def wordpress_init(post_model: models_post.WordPressInit):
+@app.post("/wp/php/init", status_code=200)
+async def wordpress_php_init(post_model: models_post.WordPressInit):
     global user_session
     if user_session is None:
         raise HTTPException(
@@ -751,15 +775,33 @@ async def wordpress_init(post_model: models_post.WordPressInit):
         account_id = post_data_dict['account_id']
         account_dict = models_database.DB.account_get(db_file, website_id, account_id)
         if account_dict['type'] == "FTP":
-            ftp_upload_result = models_connection.FTP.upload_wpmt_php_client(account_dict['hostname'], account_dict['username'], account_dict['password'], account_dict['port'], account_dict['path'])
+            ftp_upload_result = models_connection.FTP.upload_wpmt_php_client_ftp(account_dict['hostname'], account_dict['username'], account_dict['password'], account_dict['port'], account_dict['path'])
             return ftp_upload_result
         else:
             return{
                 "Response": "Failure",
                 "Message": "router.wordpress_init: Selected protocol not yet implemented"
             }
+
+
+@app.get("/wp/php/core/version", status_code=200)
+async def wordpress_php_core_version():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "wp-core",
+            "option": "version",
+        }
+        core_version = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+
+
 # -------------------------
-# START of WORDPRESS section
+# END of WORDPRESS section
 # -------------------------
 
 
