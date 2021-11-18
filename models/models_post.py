@@ -80,12 +80,12 @@ class Account(BaseModel):
     path: Optional[str]
 
 
-class AccountTypeGet(BaseModel):
-    account_type: str
-
-
 class AccountGet(BaseModel):
     account_id: str
+
+
+class AccountTypeGet(BaseModel):
+    account_type: str
 
 
 class WordPressInit(BaseModel):

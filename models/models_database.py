@@ -362,6 +362,27 @@ class DB:
                 "Message": "No records were found for the [" + domain + "] domain."
             }
 
+    @staticmethod
+    def db_site_get_id(db_file, website_id):
+        sql_command = "SELECT * FROM website WHERE website_id=?"
+        sql_data = [website_id]
+        temp = DB.request_data(db_file, sql_command, sql_data)
+        if len(temp) >= 1:
+            temp_dict = {
+                "website_id": temp[0][0],
+                "client_id": temp[0][1],
+                "domain": temp[0][2],
+                "domain_exp": temp[0][3],
+                "certificate": temp[0][4],
+                "cert_exp": temp[0][5]
+            }
+            return temp_dict
+        else:
+            return {
+                "Response": "Error",
+                "Message": "No records were found for the [" + website_id + "] website."
+            }
+
 
     @staticmethod
     def db_site_count_get(db_file, client_id):

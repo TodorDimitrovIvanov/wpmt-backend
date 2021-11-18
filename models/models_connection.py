@@ -10,44 +10,32 @@ import requests
 import router
 from os.path import expanduser, isfile, join
 from pathlib import Path
+from models import models_database
 
 user_home = expanduser('~')
 __ftp_sleep_interval__ = 0.1
 
 __app_headers__ = {
-    'Host': 'cluster-eu01.wpmt.org',
-    'User-Agent': 'WPMT-Client-API/1.0',
-    'Referer': 'http://localhost:13337/models_connection.py',
-    'Content-Type': 'application/json'
+  'Connection': 'keep-alive',
+  'Pragma': 'no-cache',
+  'Cache-Control': 'no-cache',
+  'Upgrade-Insecure-Requests': '1',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+  'Accept-Language': 'en-US,en;q=0.9'
 }
 
 
-class Connection:
+class WP:
 
     @staticmethod
-    def connection_start(conn_type: str, hostname: str, username: str, password: str, port: int, path: str):
-
-        pass
-
-    @staticmethod
-    def download_php_client():
-        # This function downloads a copy of the wp-multitool.php file to the user's machine
-        if not isfile(join(user_home, 'WPMT', 'config', 'wp-multitool.php')):
-            try:
-                Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
-                client_file = open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'wb')
-                client_file_contents = requests.get(router.__wpmt_php_client_url__)
-                client_file.write(client_file_contents.content)
-                client_file.close()
-                return True
-            except IOError as err:
-                message = "[Client][Connection][Error][01]: Can't download the wpmt-client file. Full error: " + str(err)
-                router.send_to_logger("error", message, client_id=None, client_email=None)
-                return False
-            except:
-                return False
-        else:
-            return True
+    def send_wp_request_php(db_file, active_website: str, command: dict):
+        website_dict = models_database.DB.db_site_get_id(db_file, active_website)
+        website_domain = website_dict['domain']
+        url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command['option']
+        send_request = requests.get(url, headers=__app_headers__)
+        print("[DEBUG]WP.send_wp_request_php: URL: ", url)
+        print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
 
 
 class FTP:
@@ -64,7 +52,7 @@ class FTP:
             return None
 
     @staticmethod
-    def upload_wpmt_php_client(hostname: str, username: str, password: str, port: int, path: str):
+    def upload_wpmt_php_client_ftp(hostname: str, username: str, password: str, port: int, path: str):
         if isfile(join(user_home, 'WPMT', 'config', 'wp-multitool.php')):
             try:
                 filesize = os.path.getsize(join(user_home, 'WPMT', 'config', 'wp-multitool.php'))
@@ -73,11 +61,16 @@ class FTP:
                     ftp_conn = FTP.start(hostname, username, password, port, path)
                     ftp_conn.set_pasv(True)
                     ftp_conn.encoding = "utf-8"
+                    # TODO: We need a way to check whether the last char is '/'
+                    if path != "":
+                        ftp_command = "STOR " + path + "/wp-multitool.php"
+                    else:
+                        ftp_command = "STOR wp-multitool.php"
                     with open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'rb') as file:
-                        result = ftp_conn.storbinary("STOR wp-multitool.php", file)
+                        result = ftp_conn.storbinary(ftp_command, file)
                     ftp_conn.quit()
                     if str(result[0:3]) == "226":
-                        # If the first three chars are 226
+                        # If the first three chars are 226 -> Transfer completed
                         return {
                             "Response": "Success",
                             "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file was uploaded successfully"
@@ -165,7 +158,6 @@ class FTP:
                     }
         return
 
-
     @staticmethod
     def ftp_create_local_dir(path):
         try:
@@ -176,6 +168,25 @@ class FTP:
             else:
                 raise
 
+    @staticmethod
+    def download_php_client():
+        # This function downloads a copy of the wp-multitool.php file to the user's machine
+        if not isfile(join(user_home, 'WPMT', 'config', 'wp-multitool.php')):
+            try:
+                Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
+                client_file = open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'wb')
+                client_file_contents = requests.get(router.__wpmt_php_client_url__)
+                client_file.write(client_file_contents.content)
+                client_file.close()
+                return True
+            except IOError as err:
+                message = "[Client][Connection][Error][01]: Can't download the wpmt-client file. Full error: " + str(err)
+                router.send_to_logger("error", message, client_id=None, client_email=None)
+                return False
+            except:
+                return False
+        else:
+            return True
 
     @staticmethod
     def get_cwd(hostname: str, username: str, password: str, port: int):
