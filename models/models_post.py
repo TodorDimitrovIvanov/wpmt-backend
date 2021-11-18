@@ -52,7 +52,7 @@ class WebsiteSearch(BaseModel):
 
 
 class WebsiteID(BaseModel):
-    domain: str
+    website_id: str
 
 
 class WebsiteUserSearch(BaseModel):
