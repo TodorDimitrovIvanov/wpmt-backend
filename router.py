@@ -531,6 +531,20 @@ def website_get(search: models_post.WebsiteSearch):
         return HTTPException(status_code=403)
 
 
+@app.post('/website/get/id', status_code=200)
+def website_get_id(search: models_post.WebsiteID):
+    try:
+        global user_session
+        if user_session is None:
+            raise HTTPException(status_code=403)
+        else:
+            result_dic = search.dict()
+            result = models_database.DB.db_site_get_id(db_file, result_dic['website_id'])
+            return result
+    except NameError:
+        return HTTPException(status_code=403)
+
+
 # Note: This function should be removed as it could pose a security risk
 # It's currently used for debugging purposes
 @app.get("/website/all", status_code=200)
