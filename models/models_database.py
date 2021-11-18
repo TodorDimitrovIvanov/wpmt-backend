@@ -430,20 +430,39 @@ class DB:
                 return False
 
     @staticmethod
+    def account_get(db_file, website_id, acc_id):
+        sql_command = "SELECT * FROM accounts WHERE website_id=? and account_id=?"
+        sql_data = [website_id, acc_id]
+        sql_result = DB.request_data(db_file, sql_command, sql_data)
+        for index, entry in enumerate(sql_result):
+            temp_dict = {
+                "account_id": entry[0],
+                "website_id": entry[1],
+                "type": entry[2],
+                "hostname": entry[3],
+                "username": entry[4],
+                "password": entry[5],
+                "port": entry[6],
+                "path": entry[7]
+            }
+        return temp_dict
+
+    @staticmethod
     def accounts_type_get(db_file, website_id, acc_type):
-        sql_command = "SELECT * FROM accounts WHERE website_id=? AND type=? "
+        sql_command = "SELECT * FROM accounts WHERE website_id=? AND type=?"
         sql_data = [website_id, acc_type]
         temp = DB.request_data(db_file, sql_command, sql_data)
         result_dict = {}
         for index, entry in enumerate(temp):
             temp_dict = {
-                "client_id": entry[0],
-                "client_key": entry[1],
-                "email": entry[2],
-                "name": entry[3],
-                "service": entry[4],
-                "notifications": entry[5],
-                "promos": entry[6]
+                "account_id": entry[0],
+                "website_id": entry[1],
+                "type": entry[2],
+                "hostname": entry[3],
+                "username": entry[4],
+                "password": entry[5],
+                "port": entry[6],
+                "path": entry[7]
             }
             result_dict[index] = temp_dict
         return result_dict

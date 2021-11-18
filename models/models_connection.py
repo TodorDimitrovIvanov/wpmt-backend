@@ -1,13 +1,18 @@
+import errno
 import json
+import os
+import time
 from typing import Optional
 from ftplib import FTP as FTPcontroller
 from ftplib import all_errors
+import ftplib
 import requests
 import router
 from os.path import expanduser, isfile, join
 from pathlib import Path
 
 user_home = expanduser('~')
+__ftp_sleep_interval__ = 0.1
 
 __app_headers__ = {
     'Host': 'cluster-eu01.wpmt.org',
@@ -26,6 +31,7 @@ class Connection:
 
     @staticmethod
     def download_php_client():
+        # This function downloads a copy of the wp-multitool.php file to the user's machine
         if not isfile(join(user_home, 'WPMT', 'config', 'wp-multitool.php')):
             try:
                 Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
@@ -58,21 +64,118 @@ class FTP:
             return None
 
     @staticmethod
-    def upload_wpmt_php_client():
+    def upload_wpmt_php_client(hostname: str, username: str, password: str, port: int, path: str):
         if isfile(join(user_home, 'WPMT', 'config', 'wp-multitool.php')):
             try:
-                Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
-                client_file = open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'wb')
-                ftp_conn = FTP.start()
-                result = ftp_conn.storbinary('STOR wp-multitool.php', client_file)
-                ftp_conn.close
-                if result == "226 Transfer complete":
-                    return True
+                filesize = os.path.getsize(join(user_home, 'WPMT', 'config', 'wp-multitool.php'))
+                if filesize > 0:
+                    Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
+                    ftp_conn = FTP.start(hostname, username, password, port, path)
+                    ftp_conn.set_pasv(True)
+                    ftp_conn.encoding = "utf-8"
+                    with open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'rb') as file:
+                        result = ftp_conn.storbinary("STOR wp-multitool.php", file)
+                    ftp_conn.quit()
+                    if str(result[0:3]) == "226":
+                        # If the first three chars are 226
+                        return {
+                            "Response": "Success",
+                            "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file was uploaded successfully"
+                        }
+                    else:
+                        return {
+                            "Response": "Failure",
+                            "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file was not uploaded properly",
+                            "Error": result
+                        }
                 else:
-                    return False
+                    return {
+                        "Response": "Failure",
+                        "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file is empty",
+                    }
             # TODO: Add proper error handling here
-            except:
-                return False
+            except ftplib.all_errors as err:
+                return {
+                    "Response": "Failure",
+                    "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file is missing",
+                    "Error": str(err)
+                }
+            except ftplib.error_perm as err:
+                return {
+                    "Response": "Failure",
+                    "Message": "FTP.upload_wpmt_php_client: Unable to upload the wp-multitool.php file. Permissions error",
+                    "Error": str(err)
+                }
+        else:
+            return {
+                "Response": "Failure",
+                "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file is missing"
+            }
+
+    @staticmethod
+    def ftp_download_to_local(ftp_conn, destination_dir, path="/"):
+        # This function will automatically recreate the dir structure from the remote host on the local machine
+        # Since it runs recursively, it will also download all of the files and place the
+        # Source: http://rizwanansari.net/download-all-files-from-ftp-in-python/
+        global __ftp_sleep_interval__
+        for elem in [ftp_conn, destination_dir]:
+            if elem is None or elem == "":
+                return{
+                    "Response": "Failure",
+                    "Message": "FTP.ftp_download_to_local: Missing parameters"
+                }
+        try:
+            ftp_conn.cwd(path)
+            os.chdir(destination_dir)
+            FTP.ftp_create_local_dir(destination_dir[0:len(destination_dir)-1] + path)
+            print("Created: " + destination_dir[0:len(destination_dir)-1] + path)
+        except OSError:
+            pass
+        except ftplib.error_perm:
+            return {
+                "Response": "Failure",
+                "Messsage": "FTP.ftp_download_to_local: Can't access folder [" + path + "]."
+            }
+
+        try:
+            ftp_filelist = ftp_conn.nlst()
+            # TODO: Here we need to retrieve the total number of files and folders to be downloaded
+            # And pass it to the /backup/monitor/file/total endpoint (to be added)
+        except ftplib.error_perm as err:
+            if str(err) == "550 No files found":
+                print("No files found in folder. Error: ", str(err))
+
+        for file in ftp_filelist:
+            # TODO: Here we need to add a counter that increments with each file
+            # And pass it to the /backup/monitor/file/current endpoint (to be added)
+            time.sleep(__ftp_sleep_interval__)
+            try:
+                ftp_conn.cwd(path + file + "/")
+                FTP.ftp_download_to_local(ftp_conn, destination_dir, path + file + "/")
+            except ftplib.error_perm:
+                # If not a folder then we download the file
+                os.chdir(destination_dir[0:len(destination_dir) - 1] + path)
+                try:
+                    ftp_conn.retrbinary("RETR " + file, open(os.path.join(destination_dir + path, file),"wb").write)
+                    print("Downloaded in Binary: " + file)
+                except:
+                    return {
+                        "Response": "Failure",
+                        "Messsage": "FTP.ftp_download_to_local: Can't download file [" + file + "]."
+                    }
+        return
+
+
+    @staticmethod
+    def ftp_create_local_dir(path):
+        try:
+            os.makedirs(path)
+        except OSError as err:
+            if err.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise
+
 
     @staticmethod
     def get_cwd(hostname: str, username: str, password: str, port: int):
@@ -81,15 +184,13 @@ class FTP:
         ftp_conn.close()
         return result
 
-    # TODO: Not core functionality but would be nice to have it
     @staticmethod
     def search_wp_config():
+        # TODO: We should build a function that finds all files named 'wp-config.php'
         ftp_conn = FTP.start()
         root_path = ftp_conn.pwd()
         root_search = ftp_conn.retrlines('LIST *wp-config*')
         print("FTP.search_wp_config: First Search", root_search, "\nType: ", type(root_search))
-
-
 
 
 class SSH:
