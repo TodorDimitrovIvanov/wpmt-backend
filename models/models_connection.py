@@ -64,21 +64,53 @@ class FTP:
             return None
 
     @staticmethod
-    def upload_wpmt_php_client():
+    def upload_wpmt_php_client(hostname: str, username: str, password: str, port: int, path: str):
         if isfile(join(user_home, 'WPMT', 'config', 'wp-multitool.php')):
             try:
-                Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
-                client_file = open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'wb')
-                ftp_conn = FTP.start()
-                result = ftp_conn.storbinary('STOR wp-multitool.php', client_file)
-                ftp_conn.close
-                if result == "226 Transfer complete":
-                    return True
+                filesize = os.path.getsize(join(user_home, 'WPMT', 'config', 'wp-multitool.php'))
+                if filesize > 0:
+                    Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
+                    ftp_conn = FTP.start(hostname, username, password, port, path)
+                    ftp_conn.set_pasv(True)
+                    ftp_conn.encoding = "utf-8"
+                    with open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'rb') as file:
+                        result = ftp_conn.storbinary("STOR wp-multitool.php", file)
+                    ftp_conn.quit()
+                    if str(result[0:3]) == "226":
+                        # If the first three chars are 226
+                        return {
+                            "Response": "Success",
+                            "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file was uploaded successfully"
+                        }
+                    else:
+                        return {
+                            "Response": "Failure",
+                            "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file was not uploaded properly",
+                            "Error": result
+                        }
                 else:
-                    return False
+                    return {
+                        "Response": "Failure",
+                        "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file is empty",
+                    }
             # TODO: Add proper error handling here
-            except:
-                return False
+            except ftplib.all_errors as err:
+                return {
+                    "Response": "Failure",
+                    "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file is missing",
+                    "Error": str(err)
+                }
+            except ftplib.error_perm as err:
+                return {
+                    "Response": "Failure",
+                    "Message": "FTP.upload_wpmt_php_client: Unable to upload the wp-multitool.php file. Permissions error",
+                    "Error": str(err)
+                }
+        else:
+            return {
+                "Response": "Failure",
+                "Message": "FTP.upload_wpmt_php_client: The wp-multitool.php file is missing"
+            }
 
     @staticmethod
     def ftp_download_to_local(ftp_conn, destination_dir, path="/"):

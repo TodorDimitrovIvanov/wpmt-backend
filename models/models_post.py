@@ -89,7 +89,7 @@ class AccountGet(BaseModel):
 
 
 class WordPressInit(BaseModel):
-    website_id: str
+    account_id: str
 
 
 class WordPressLink(BaseModel):

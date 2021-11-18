@@ -12,7 +12,7 @@ import sched, time, datetime
 
 
 # Custom modules
-from models import models_file, models_post, models_database
+from models import models_file, models_post, models_database, models_connection
 # These are POST body models that the API endpoints expect to receive
 # This is an  ASGI (Asynchronous Server Gateway Interface) server on which the API runs
 # Source: https://www.uvicorn.org/
@@ -100,7 +100,6 @@ class State:
                 }
         return result_dict
 
-
     @staticmethod
     def state_local_get():
         current_session = session_get()
@@ -179,10 +178,6 @@ class State:
                     "Response": "Error",
                     "Message": "No state found for the [" + current_session['client_id'] + "] user"
                 }
-
-    @staticmethod
-    def state_sync():
-        pass
 #   --------------------
 #   END of State Class
 #   --------------------
@@ -416,8 +411,6 @@ async def login(login_model: models_post.UserLogin, request: Request):
         }
 
 
-
-
 @app.get("/user/logout")
 async def logout():
     global user_session
@@ -461,7 +454,6 @@ async def state_get():
         raise HTTPException(
             status_code=403,
             detail="[Client][API][Error][03]: Error Message: " + str(err))
-
 
 
 @app.get("/user/state/set", status_code=200)
@@ -644,15 +636,15 @@ async def account_add(post_data: models_post.Account):
 @app.post("/website/account/type/get", status_code=200)
 async def account_type_get(post_data: models_post.AccountTypeGet):
     # This function will return all accounts of certain type (SSH,FTP, etc.) for the specified website
-    post_data_dict = post_data.dict()
-    current_session = session_get()
-    if current_session is None or current_session['active_website'] == "":
+    global user_session
+    if user_session is None:
         raise HTTPException(
             status_code=403,
             detail="Not Allowed"
         )
-        return
     else:
+        post_data_dict = post_data.dict()
+        current_session = session_get()
         result = models_database.DB.accounts_type_get(db_file, current_session['active_website'], post_data_dict['account_type'])
         if result:
             return result
@@ -700,18 +692,14 @@ async def account_delete(post_data: models_post.AccountGet):
                 "Response": "Successfully removed",
                 "account_id": post_data_dict['account_id']
             }
-
-
 # -------------------------
 # END of ACCOUNTS section
 # -------------------------
 
 
-
 # -------------------------
 # START of BACKUP section
 # -------------------------
-
 @app.post("/website/backup/create", status_code=200)
 async def backup_create(post_model: models_post.BackupCreate):
     # The POST request should include a dictionary with the following:
@@ -727,21 +715,14 @@ async def backup_create(post_model: models_post.BackupCreate):
         post_data_dict = post_model.dict()
         domain = user_session['active_website']
         pass
-
-
-
 # -------------------------
 # END of BACKUP section
 # -------------------------
 
 
-
-
 # -------------------------
 # START of WORDPRESS section
 # -------------------------
-
-
 @app.post("/wp/link", status_code=200)
 async def wordpress_link(post_model: models_post.WordPressLink):
     global user_session
@@ -758,9 +739,25 @@ async def wordpress_link(post_model: models_post.WordPressLink):
 
 @app.post("/wp/init", status_code=200)
 async def wordpress_init(post_model: models_post.WordPressInit):
-    post_data_dict = post_model.dict()
-    pass
-
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        website_id = user_session['active_website']
+        account_id = post_data_dict['account_id']
+        account_dict = models_database.DB.account_get(db_file, website_id, account_id)
+        if account_dict['type'] == "FTP":
+            ftp_upload_result = models_connection.FTP.upload_wpmt_php_client(account_dict['hostname'], account_dict['username'], account_dict['password'], account_dict['port'], account_dict['path'])
+            return ftp_upload_result
+        else:
+            return{
+                "Response": "Failure",
+                "Message": "router.wordpress_init: Selected protocol not yet implemented"
+            }
 # -------------------------
 # START of WORDPRESS section
 # -------------------------
