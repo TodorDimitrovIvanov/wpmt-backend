@@ -34,9 +34,33 @@ class WP:
         website_domain = website_dict['domain']
         url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command['option']
         send_request = requests.get(url, headers=__app_headers__)
-        print("[DEBUG]WP.send_wp_request_php: URL: ", url)
-        print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
+        #print("[DEBUG]WP.send_wp_request_php: URL: ", url)
+        #print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
+        return send_request.content.decode()
 
+    @staticmethod
+    def wp_plugin_list_cleanup(plugin_str: str):
+        for character in ['[',']', '\\']:
+            plugin_str = plugin_str.replace(character, "")
+        # Remove the extra { and } chars
+        plugin_str = plugin_str[1:]
+        plugin_str = plugin_str[:-1]
+        # Here we split the string into a list
+        plugin_list = plugin_str.split('},{')
+        plugin_dict_list = {}
+        # And finally, we fill a dictionary of the plugin dictionaries
+        for index, element in enumerate(plugin_list):
+            if index == 0:
+                element = ''.join((element,'}'))
+                # We don't need the headers in the dict, do we?
+                # plugin_dict_list[index] = json.loads(element)
+            elif index == len(plugin_list)-1:
+                element = ''.join(('{', element))
+                plugin_dict_list[index] = json.loads(element)
+            else:
+                element = ''.join(('{', element, '}'))
+                plugin_dict_list[index] = json.loads(element)
+        return plugin_dict_list
 
 class FTP:
     @staticmethod
@@ -67,7 +91,7 @@ class FTP:
                     else:
                         ftp_command = "STOR wp-multitool.php"
                     with open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'rb') as file:
-                        result = ftp_conn.storbinary(ftp_command, file)
+                        result = ftp_conn.storlines(ftp_command, file)
                     ftp_conn.quit()
                     if str(result[0:3]) == "226":
                         # If the first three chars are 226 -> Transfer completed
