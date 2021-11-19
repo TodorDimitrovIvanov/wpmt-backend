@@ -572,7 +572,7 @@ async def website_active_set(post_data: models_post.WebsiteID):
     post_data_dict = post_data.dict()
     global user_session
     if user_session is not None:
-        sql_result = models_database.DB.db_site_get(db_file, user_session['client_id'], post_data_dict['domain'])
+        sql_result = models_database.DB.db_site_get(db_file, user_session['client_id'], post_data_dict['website_id'])
         user_session['active_website'] = sql_result['website_id']
         return {
             "Response": "Success",
@@ -812,6 +812,34 @@ async def wordpress_php_core_version():
             "option": "version",
         }
         core_version = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": core_version
+        }
+
+
+@app.get("/wp/php/plugin/list", status_code=200)
+async def wordpress_php_core_version():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "wp-plugin",
+            "option": "list",
+        }
+        # Here we send the request that runs the PHP code on the host server
+        # The response is a mangled list of all plugins on the webiste
+        plugin_str = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        # Therefore before returning it we first need to edit the string
+        result = models_connection.WP.wp_plugin_list_cleanup(plugin_str)
+        return {
+            "Response": "Success",
+            "Result": result
+        }
 
 
 # -------------------------
