@@ -92,6 +92,12 @@ class WordPressInit(BaseModel):
     account_id: str
 
 
+class WordPressData(BaseModel):
+    name: str
+    # Here the version is not really used as its not implemented in the PHP Payload
+    version: Optional[str] = ""
+
+
 class WordPressLink(BaseModel):
     website_id: str
     account_id: str
