@@ -798,6 +798,126 @@ async def wordpress_php_init(post_model: models_post.WordPressInit):
             }
 
 
+@app.get("/wp/php/db/setup", status_code=200)
+async def wordpress_dbtools_setup():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "db",
+            "option": "setup",
+        }
+        db_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": db_result
+        }
+
+
+@app.get("/wp/php/db/settings", status_code=200)
+async def wordpress_dbsettings_get():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "db",
+            "option": "settings",
+        }
+        db_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": db_result
+        }
+
+
+@app.get("/wp/php/db/backup", status_code=200)
+async def wordpress_db_backup():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "db",
+            "option": "export",
+        }
+        db_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": db_result
+        }
+
+
+@app.get("/wp/php/file/size", status_code=200)
+async def wordpress_filesize_get():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "file",
+            "option": "size",
+        }
+        file_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": file_result
+        }
+
+
+@app.get("/wp/php/file/perm", status_code=200)
+async def wordpress_fileperm_reset():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "file",
+            "option": "permissions",
+        }
+        file_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": file_result
+        }
+
+
+@app.get("/wp/php/file/backup", status_code=200)
+async def wordpress_file_backup():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "file",
+            "option": "backup",
+        }
+        file_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": file_result
+        }
+
+
 @app.get("/wp/php/core/version", status_code=200)
 async def wordpress_php_core_version():
     global user_session
@@ -818,8 +938,28 @@ async def wordpress_php_core_version():
         }
 
 
+@app.get("/wp/php/core/reset")
+async def wordpress_php_core_reset():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "wp-core",
+            "option": "reset",
+        }
+        core_version = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        return {
+            "Response": "Success",
+            "Result": core_version
+        }
+
+
 @app.get("/wp/php/plugin/list", status_code=200)
-async def wordpress_php_core_version():
+async def wordpress_php_plugin_list():
     global user_session
     if user_session is None:
         raise HTTPException(
@@ -842,6 +982,190 @@ async def wordpress_php_core_version():
         }
 
 
+@app.get("/wp/php/plugin/update", status_code=200)
+async def wordpress_php_plugin_update(post_model: models_post.WordPressData):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['name'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing plugin name"
+            }
+        else:
+            command = {
+                "type": "wp-plugin",
+                "option": "update",
+            }
+            update_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            return {
+                "Response": "Success",
+                "Result": update_result
+            }
+
+
+@app.get("/wp/php/plugin/enable", status_code=200)
+async def wordpress_php_plugin_enable(post_model: models_post.WordPressData):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['name'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing plugin name"
+            }
+        else:
+            command = {
+                "type": "wp-plugin",
+                "option": "enable",
+            }
+            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            return {
+                "Response": "Success",
+                "Result": change_result
+            }
+
+
+@app.get("/wp/php/plugin/disable", status_code=200)
+async def wordpress_php_plugin_disables(post_model: models_post.WordPressData):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['name'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing plugin name"
+            }
+        else:
+            command = {
+                "type": "wp-plugin",
+                "option": "disable",
+            }
+            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            return {
+                "Response": "Success",
+                "Result": change_result
+            }
+
+
+@app.get("/wp/php/theme/list", status_code=200)
+async def wordpress_php_theme_list():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command = {
+            "type": "wp-theme",
+            "option": "list",
+        }
+        # Here we send the request that runs the PHP code on the host server
+        # The response is a mangled list of all plugins on the webiste
+        theme_str = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        # Therefore before returning it we first need to edit the string
+        result = models_connection.WP.wp_plugin_list_cleanup(theme_str)
+        return {
+            "Response": "Success",
+            "Result": result
+        }
+
+
+@app.get("/wp/php/theme/update", status_code=200)
+async def wordpress_php_plugin_update(post_model: models_post.WordPressData):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['name'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing theme name"
+            }
+        else:
+            command = {
+                "type": "wp-theme",
+                "option": "update",
+            }
+            update_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            return {
+                "Response": "Success",
+                "Result": update_result
+            }
+
+
+@app.get("/wp/php/theme/enable", status_code=200)
+async def wordpress_php_plugin_enable(post_model: models_post.WordPressData):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['name'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing plugin name"
+            }
+        else:
+            command = {
+                "type": "wp-theme",
+                "option": "enable",
+            }
+            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            return {
+                "Response": "Success",
+                "Result": change_result
+            }
+
+
+@app.get("/wp/php/theme/disable", status_code=200)
+async def wordpress_php_plugin_disable(post_model: models_post.WordPressData):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['name'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing plugin name"
+            }
+        else:
+            command = {
+                "type": "wp-theme",
+                "option": "disable",
+            }
+            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            return {
+                "Response": "Success",
+                "Result": change_result
+            }
 # -------------------------
 # END of WORDPRESS section
 # -------------------------

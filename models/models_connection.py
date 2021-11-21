@@ -29,14 +29,26 @@ __app_headers__ = {
 class WP:
 
     @staticmethod
-    def send_wp_request_php(db_file, active_website: str, command: dict):
-        website_dict = models_database.DB.db_site_get_id(db_file, active_website)
-        website_domain = website_dict['domain']
-        url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command['option']
-        send_request = requests.get(url, headers=__app_headers__)
-        #print("[DEBUG]WP.send_wp_request_php: URL: ", url)
-        #print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
-        return send_request.content.decode()
+    def send_wp_request_php(db_file, active_website: str, command: dict, data: dict=None):
+        if data is None:
+            website_dict = models_database.DB.db_site_get_id(db_file, active_website)
+            website_domain = website_dict['domain']
+            url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command['option']
+            send_request = requests.get(url, headers=__app_headers__)
+            print("[DEBUG]WP.send_wp_request_php: URL: ", url)
+            #print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
+            return send_request.content.decode()
+        else:
+            website_dict = models_database.DB.db_site_get_id(db_file, active_website)
+            website_domain = website_dict['domain']
+            # TODO: Add a check if the post_data_dict parameter we receive in this function has a "version" field
+            # And if yes then create a new URL that includes it, provided the PHP Payload has this feature implemented
+            url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command[
+                'option'] + "&data=" + data['name']
+            send_request = requests.get(url, headers=__app_headers__)
+            print("[DEBUG]WP.send_wp_request_php: URL: ", url)
+            # print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
+            return send_request.content.decode()
 
     @staticmethod
     def wp_plugin_list_cleanup(plugin_str: str):
@@ -53,13 +65,13 @@ class WP:
             if index == 0:
                 element = ''.join((element,'}'))
                 # We don't need the headers in the dict, do we?
-                # plugin_dict_list[index] = json.loads(element)
+                plugin_dict_list[index+1] = json.loads(element)
             elif index == len(plugin_list)-1:
                 element = ''.join(('{', element))
-                plugin_dict_list[index] = json.loads(element)
+                plugin_dict_list[index+1] = json.loads(element)
             else:
                 element = ''.join(('{', element, '}'))
-                plugin_dict_list[index] = json.loads(element)
+                plugin_dict_list[index+1] = json.loads(element)
         return plugin_dict_list
 
 class FTP:
