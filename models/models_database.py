@@ -1,3 +1,4 @@
+import base64
 import json
 # Source: https://www.sqlitetutorial.net/sqlite-python/
 import sqlite3
@@ -432,17 +433,23 @@ class DB:
     #####################
     ###### ACCOUNTS #####
     @staticmethod
-    def account_add(db_file, account_id: str, website_id: str, acc_type: str, hostname: str, username:str, password: str, port: int, path: Optional[str]= "/"):
-        print("DB Account Add: ", account_id)
+    def account_add(db_file, account_id: str, website_id: str, acc_type: str, hostname: str, username: str, password: str, port: int, path: Optional[str]= "/"):
+        print("[DEBUG]models_database.account_add: Website ID: ", website_id)
+        print("[DEBUG]models_database.account_add: Account ID: ", account_id)
         if website_id is None or website_id == "":
             return{
                 "Response": "Error",
                 "Message": "The session has no active websites"
             }
         else:
-            print("Website ID: ", website_id)
+
             sql_command = "INSERT INTO accounts (account_id, website_id, type, hostname, username, password, port, path) VALUES (?,?,?,?,?,?,?,?);"
-            print("SQL Command: ", sql_command)
+            print("[DEBUG]models_database.account_add: SQL Command: ", sql_command)
+            if acc_type == "SSH" and path.startswith("-----BEGIN"):
+                # VERY IMPORTANT! The RSA Private Key must have a \n at the end of each line
+                print("[DEBUG]models_database.account_add: String Key: ", path)
+                path = base64.b64encode(str.encode(path))
+                print("[DEBUG]models_database.account_add: Base64 Key: ", path)
             sql_data = [account_id, website_id, acc_type, hostname, username, password, port, path]
             temp = DB.insert_data(db_file, sql_command, sql_data)
             if temp:

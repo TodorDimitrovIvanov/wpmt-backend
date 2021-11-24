@@ -1,4 +1,6 @@
+import base64
 import errno
+import io
 import json
 import os
 import time
@@ -6,6 +8,8 @@ from typing import Optional
 from ftplib import FTP as FTPcontroller
 from ftplib import all_errors
 import ftplib
+
+import paramiko
 import requests
 import router
 from os.path import expanduser, isfile, join
@@ -29,14 +33,14 @@ __app_headers__ = {
 class WP:
 
     @staticmethod
-    def send_wp_request_php(db_file, active_website: str, command: dict, data: dict=None):
+    def wp_php_request_send(db_file, active_website: str, command: dict, data: dict=None):
         if data is None:
             website_dict = models_database.DB.db_site_get_id(db_file, active_website)
             website_domain = website_dict['domain']
             url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command['option']
             send_request = requests.get(url, headers=__app_headers__)
-            print("[DEBUG]WP.send_wp_request_php: URL: ", url)
-            #print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
+            print("[DEBUG]WP.wp_php_request_send: URL: ", url)
+            #print("[DEBUG]WP.wp_php_request_send: ", send_request.content.decode())
             return send_request.content.decode()
         else:
             website_dict = models_database.DB.db_site_get_id(db_file, active_website)
@@ -46,12 +50,12 @@ class WP:
             url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command[
                 'option'] + "&data=" + data['name']
             send_request = requests.get(url, headers=__app_headers__)
-            print("[DEBUG]WP.send_wp_request_php: URL: ", url)
-            # print("[DEBUG]WP.send_wp_request_php: ", send_request.content.decode())
+            print("[DEBUG]WP.wp_php_request_send: URL: ", url)
+            # print("[DEBUG]WP.wp_php_request_send: ", send_request.content.decode())
             return send_request.content.decode()
 
     @staticmethod
-    def wp_plugin_list_cleanup(plugin_str: str):
+    def wp_php_list_cleanup(plugin_str: str):
         for character in ['[',']', '\\']:
             plugin_str = plugin_str.replace(character, "")
         # Remove the extra { and } chars
@@ -73,6 +77,52 @@ class WP:
                 element = ''.join(('{', element, '}'))
                 plugin_dict_list[index+1] = json.loads(element)
         return plugin_dict_list
+
+    @staticmethod
+    def wp_ssh_request_findroot(ssh_conn: paramiko.SSHClient):
+        stdin1, stdout1, stderr1 = ssh_conn.exec_command("find . -name \"wp-config.php\"")
+        print("[DEBUG]: models_connection.WP.wp_ssh_request_send: ", "\nSTDOUT: ", str(stdout1), "\nSTDERR: ", str(stderr1))
+
+
+    @staticmethod
+    def wp_ssh_request_send(db_file, active_website: str, account_id: str, command: str, data: dict=None):
+        website_dict = models_database.DB.db_site_get_id(db_file, active_website)
+        website_domain = website_dict['domain']
+        account_dict = models_database.DB.account_get(db_file, active_website, account_id)
+        if account_dict['type'] != "SSH":
+            return {
+                "Response": "Error",
+                "Message": "The requested functionality is supported only on SSH connections"
+            }
+        else:
+            ssh_conn = paramiko.SSHClient()
+            ssh_conn.set_missing_host_key_policy(paramiko.AutoAddPolicy)
+            if account_dict['path'] != "/":
+                #print("Base64 Key: ", account_dict['path'])
+                #print("String Key: ", base64.b64decode(account_dict['path']))
+                #keyFile = io.StringIO(account_dict['path'])
+                privkey = paramiko.RSAKey.from_private_key(io.StringIO(base64.b64decode(account_dict['path']).decode()))
+                #print("[DEBUG]: models_connection.WP.wp_ssh_request_send: Type: ", type(privkey))
+                ssh_conn.connect(account_dict['hostname'], username=account_dict['username'], password=account_dict['password'], port=account_dict['port'], pkey=privkey)
+                stdin, stdout, stderr = ssh_conn.exec_command(command)
+                #print("[DEBUG]: models_connection.WP.wp_ssh_request_send: ", "\n\tSTDOUT: ", stdout.readlines(), "\n\tSTDERR: ", stderr.readlines())
+                result = stdout.readlines()
+                ssh_conn.close()
+                return {
+                    "Response": "Success",
+                    "Message": result
+                }
+            else:
+                # Else we need to implement a SSH conenction without a Private Key
+                ssh_conn.connect(host=account_dict['hostname'], username=account_dict['username'], password=account_dict['password'], port=account_dict['port'])
+                stdin, stdout, stderr = ssh_conn.exec_command(command)
+                result = stdout.readlines()
+                ssh_conn.close()
+                return {
+                    "Response": "Success",
+                    "Message": result
+                }
+
 
 class FTP:
     @staticmethod
