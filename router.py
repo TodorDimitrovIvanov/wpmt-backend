@@ -811,7 +811,7 @@ async def wordpress_dbtools_setup():
             "type": "db",
             "option": "setup",
         }
-        db_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        db_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": db_result
@@ -831,7 +831,7 @@ async def wordpress_dbsettings_get():
             "type": "db",
             "option": "settings",
         }
-        db_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        db_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": db_result
@@ -851,7 +851,7 @@ async def wordpress_db_backup():
             "type": "db",
             "option": "export",
         }
-        db_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        db_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": db_result
@@ -871,7 +871,7 @@ async def wordpress_filesize_get():
             "type": "file",
             "option": "size",
         }
-        file_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        file_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": file_result
@@ -891,7 +891,7 @@ async def wordpress_fileperm_reset():
             "type": "file",
             "option": "permissions",
         }
-        file_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        file_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": file_result
@@ -911,7 +911,7 @@ async def wordpress_file_backup():
             "type": "file",
             "option": "backup",
         }
-        file_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        file_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": file_result
@@ -931,7 +931,7 @@ async def wordpress_php_core_version():
             "type": "wp-core",
             "option": "version",
         }
-        core_version = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        core_version = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": core_version
@@ -951,7 +951,7 @@ async def wordpress_php_core_reset():
             "type": "wp-core",
             "option": "reset",
         }
-        core_version = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        core_version = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         return {
             "Response": "Success",
             "Result": core_version
@@ -973,9 +973,9 @@ async def wordpress_php_plugin_list():
         }
         # Here we send the request that runs the PHP code on the host server
         # The response is a mangled list of all plugins on the webiste
-        plugin_str = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        plugin_str = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         # Therefore before returning it we first need to edit the string
-        result = models_connection.WP.wp_plugin_list_cleanup(plugin_str)
+        result = models_connection.WP.wp_php_list_cleanup(plugin_str)
         return {
             "Response": "Success",
             "Result": result
@@ -1002,7 +1002,7 @@ async def wordpress_php_plugin_update(post_model: models_post.WordPressData):
                 "type": "wp-plugin",
                 "option": "update",
             }
-            update_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            update_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command, post_data_dict)
             return {
                 "Response": "Success",
                 "Result": update_result
@@ -1029,7 +1029,7 @@ async def wordpress_php_plugin_enable(post_model: models_post.WordPressData):
                 "type": "wp-plugin",
                 "option": "enable",
             }
-            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            change_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command, post_data_dict)
             return {
                 "Response": "Success",
                 "Result": change_result
@@ -1056,7 +1056,7 @@ async def wordpress_php_plugin_disables(post_model: models_post.WordPressData):
                 "type": "wp-plugin",
                 "option": "disable",
             }
-            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            change_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command, post_data_dict)
             return {
                 "Response": "Success",
                 "Result": change_result
@@ -1078,9 +1078,9 @@ async def wordpress_php_theme_list():
         }
         # Here we send the request that runs the PHP code on the host server
         # The response is a mangled list of all plugins on the webiste
-        theme_str = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command)
+        theme_str = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command)
         # Therefore before returning it we first need to edit the string
-        result = models_connection.WP.wp_plugin_list_cleanup(theme_str)
+        result = models_connection.WP.wp_php_list_cleanup(theme_str)
         return {
             "Response": "Success",
             "Result": result
@@ -1107,7 +1107,7 @@ async def wordpress_php_plugin_update(post_model: models_post.WordPressData):
                 "type": "wp-theme",
                 "option": "update",
             }
-            update_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            update_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command, post_data_dict)
             return {
                 "Response": "Success",
                 "Result": update_result
@@ -1134,7 +1134,7 @@ async def wordpress_php_plugin_enable(post_model: models_post.WordPressData):
                 "type": "wp-theme",
                 "option": "enable",
             }
-            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            change_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command, post_data_dict)
             return {
                 "Response": "Success",
                 "Result": change_result
@@ -1161,11 +1161,56 @@ async def wordpress_php_plugin_disable(post_model: models_post.WordPressData):
                 "type": "wp-theme",
                 "option": "disable",
             }
-            change_result = models_connection.WP.send_wp_request_php(db_file, user_session['active_website'], command, post_data_dict)
+            change_result = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command, post_data_dict)
             return {
                 "Response": "Success",
                 "Result": change_result
             }
+
+
+@app.get("/wp/ssh/wpfind")
+async def wordpress_ssh_core_version(post_model: models_post.AccountGet):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['account_id'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing SSH account"
+            }
+        else:
+            command = "find $HOME -name \"wp-config.php\" | sed 's/\/wp\-config\.php//g' | sed 's/\.\///g'"
+            core_version = models_connection.WP.wp_ssh_request_send(db_file, user_session['active_website'], account_id=post_data_dict['account_id'], command=command)
+            return core_version
+
+
+@app.get("/wp/ssh/core/version")
+async def wordpress_ssh_core_version(post_model: models_post.AccountGet):
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        post_data_dict = post_model.dict()
+        if post_data_dict['account_id'] == "":
+            return {
+                "Response": "Error",
+                "Message": "Missing SSH account"
+            }
+        else:
+            command = "php wp-multitool/wp-cli/wp-cli.phar wp core version"
+            core_version = models_connection.WP.wp_ssh_request_send(db_file, user_session['active_website'], account_id=post_data_dict['account_id'], command=command)
+            return core_version
+
+
+
 # -------------------------
 # END of WORDPRESS section
 # -------------------------
