@@ -12,6 +12,8 @@ import sched, time, datetime
 
 
 # Custom modules
+from starlette.middleware.cors import CORSMiddleware
+
 from models import models_file, models_post, models_database, models_connection
 # These are POST body models that the API endpoints expect to receive
 # This is an  ASGI (Asynchronous Server Gateway Interface) server on which the API runs
@@ -27,8 +29,20 @@ from os.path import expanduser
 app = FastAPI()
 global user_session
 
+origins = [
+    "http://localhost:13332"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 user_home = expanduser("~")
-db_source = "./dbs/wpmt-v1.4.sql"
+db_source = "./dbs/wpmt-v1.5.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
 app_home = user_home + "/WPMT"
 
@@ -46,6 +60,16 @@ __app_headers__ = {
     'User-Agent': 'WPMT-Client-API/1.0',
     'Referer': 'http://localhost:13337/router.py',
     'Content-Type': 'application/json'
+}
+
+__app_headers__2__ = {
+  'Connection': 'keep-alive',
+  'Pragma': 'no-cache',
+  'Cache-Control': 'no-cache',
+  'Upgrade-Insecure-Requests': '1',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+  'Accept-Language': 'en-US,en;q=0.9'
 }
 
 # -------------------------
@@ -775,6 +799,51 @@ async def wordpress_link(post_model: models_post.WordPressLink):
         pass
 
 
+@app.post("/wp/php/checkup")
+async def wordpress_php_checkup():
+    global user_session
+    if user_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Not Allowed"
+        )
+    else:
+        command_plugins = {
+            "type": "wp-plugin",
+            "option": "list",
+        }
+        plugin_str = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command_plugins)
+        result = models_connection.WP.wp_php_list_cleanup(plugin_str)
+        print("Plugins: ", result)
+        command_themes = {
+            "type": "wp-theme",
+            "option": "list",
+        }
+        theme_str = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command_themes)
+        result_theme = models_connection.WP.wp_php_list_cleanup(theme_str)
+        print("Themes: ", result_theme)
+        command_version = {
+            "type": "wp-core",
+            "option": "version",
+        }
+        version_str = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command_version)
+        #result_version = models_connection.WP.wp_php_list_cleanup(version_str)
+        print("Version: ", version_str)
+
+        command_size = {
+            "type": "file",
+            "option": "size",
+        }
+        size_str = models_connection.WP.wp_php_request_send(db_file, user_session['active_website'], command_size)
+        #result_size = models_connection.WP.wp_php_list_cleanup(size_str)
+        print("Size(kB): ", size_str)
+
+
+@app.post("/wp/ssh/checkup")
+async def wordpress_ssh_checkup():
+    pass
+
+
 @app.post("/wp/php/init", status_code=200)
 async def wordpress_php_init(post_model: models_post.WordPressInit):
     global user_session
@@ -1184,7 +1253,7 @@ async def wordpress_ssh_core_version(post_model: models_post.AccountGet):
                 "Message": "Missing SSH account"
             }
         else:
-            command = "find $HOME -name \"wp-config.php\" | sed 's/\/wp\-config\.php//g' | sed 's/\.\///g'"
+            command = "find $($HOME) -name \"wp-config.php\" | sed 's/\/wp\-config\.php//g' | sed 's/\.\///g'"
             core_version = models_connection.WP.wp_ssh_request_send(db_file, user_session['active_website'], account_id=post_data_dict['account_id'], command=command)
             return core_version
 
@@ -1205,7 +1274,7 @@ async def wordpress_ssh_core_version(post_model: models_post.AccountGet):
                 "Message": "Missing SSH account"
             }
         else:
-            command = "php wp-multitool/wp-cli/wp-cli.phar wp core version"
+            command = "wppath=$(find -type d -name \"wp-multitool\"); cd $wppath; php wp-cli/wp-cli.phar core version"
             core_version = models_connection.WP.wp_ssh_request_send(db_file, user_session['active_website'], account_id=post_data_dict['account_id'], command=command)
             return core_version
 
