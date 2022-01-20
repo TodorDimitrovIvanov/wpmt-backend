@@ -44,6 +44,7 @@ app.add_middleware(
 user_home = expanduser("~")
 db_source = "./dbs/wpmt-v1.5.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
+db_tables = ["users", "website", "accounts", "wordpress", "backup", "transfer"]
 app_home = user_home + "/WPMT"
 
 # -------------------------
@@ -269,6 +270,14 @@ def db_init():
         "Response": "DB Initialized"
     }
 
+@app.get("/db/export", status_code=200)
+def db_export():
+    dictComplete = {}
+    for index, item in enumerate(db_tables):
+        print(db_tables)
+        result = models_database.DB.db_table_list(db_file, item)
+        dictComplete[item] = result
+    return dictComplete
 
 @app.post("/db/list", status_code=200)
 def db_list(post_data: models_post.DBSearch):
