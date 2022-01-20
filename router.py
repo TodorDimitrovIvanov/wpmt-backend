@@ -279,6 +279,10 @@ def db_export():
         dictComplete[item] = result
     return dictComplete
 
+@app.get("/db/import", status_code=200)
+def db_import():
+    pass
+
 @app.post("/db/list", status_code=200)
 def db_list(post_data: models_post.DBSearch):
     post_data_dict = post_data.dict()
