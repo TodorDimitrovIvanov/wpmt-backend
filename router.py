@@ -1,3 +1,4 @@
+import logging
 from json import JSONDecodeError
 
 from fastapi import FastAPI, HTTPException, Request
@@ -12,7 +13,7 @@ import sched, time, datetime
 
 
 # Custom modules
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 from models import models_file, models_post, models_database, models_connection
 # These are POST body models that the API endpoints expect to receive
@@ -29,8 +30,11 @@ from os.path import expanduser
 app = FastAPI()
 global user_session
 
+logging.basicConfig(level=logging.DEBUG)
+
 origins = [
-    "http://localhost:13332"
+    "http://localhost:13332",
+    "http://localhost:3000"
 ]
 
 app.add_middleware(
@@ -44,6 +48,7 @@ app.add_middleware(
 user_home = expanduser("~")
 db_source = "./dbs/wpmt-v1.5.sql"
 db_file = user_home + "/WPMT/db/wpmt.db"
+db_tables = ["users", "website", "accounts", "wordpress", "backup", "transfer"]
 app_home = user_home + "/WPMT"
 
 # -------------------------
@@ -269,6 +274,18 @@ def db_init():
         "Response": "DB Initialized"
     }
 
+@app.get("/db/export", status_code=200)
+def db_export():
+    dictComplete = {}
+    for index, item in enumerate(db_tables):
+        print(db_tables)
+        result = models_database.DB.db_table_list(db_file, item)
+        dictComplete[item] = result
+    return dictComplete
+
+@app.get("/db/import", status_code=200)
+def db_import():
+    pass
 
 @app.post("/db/list", status_code=200)
 def db_list(post_data: models_post.DBSearch):
@@ -292,21 +309,19 @@ def session_get():
         print(message)
 
 
-def send_to_logger(err_type, message):
+def send_to_logger(err_type, message, client_id=None, client_email=None):
     global __app_headers__
     global user_session
-    if user_session is None:
-        print("User session not defined or something...")
-    else:
-        # TODO: Remove the parameters once its verified that the user_session is properly received
-        #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
-        body = {
-            "client_id": user_session['client_id'],
-            "client_email": user_session['email'],
-            "type": err_type,
-            "message": message
-        }
-        send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
+    # TODO: Remove the parameters once its verified that the user_session is properly received
+    #print("Send to Logger Debug. Client_id: ", user_session['client_id'], user_session['email'])
+    body = {
+        "client_id": client_id,
+        "client_email": client_email,
+        "type": err_type,
+        "message": message
+    }
+    send_request = requests.post(__cluster_logger_url__, data=json.dumps(body), headers=__app_headers__)
+    logging.debug(message)
 # -------------------------
 # END of SYSTEM section
 # -------------------------
@@ -418,8 +433,8 @@ async def login(login_model: models_post.UserLogin, request: Request):
     except JSONDecodeError:
         # Here we retrieve the client's IP address using the FastApi 'Request' class
         # Source: https://fastapi.tiangolo.com/advanced/using-request-directly/#use-the-request-object-directly
-        message = "[Client][API][Error][02]: Received an error from the Cluster API. Most likely failed authentication."
-        print("Message: ", message)
+        message = "[Client][API][Error][02]: Failed authentication attempt. Double-check email and public key or your internet connection."
+        logging.debug(message)
         send_to_logger("error", message, client_id=None, client_email=result_dic['email'])
         return {
             "Response": "Error",
