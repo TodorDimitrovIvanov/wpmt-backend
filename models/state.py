@@ -1,3 +1,12 @@
+import datetime
+import requests
+import json
+from models import config, database
+from models.session import Session as session
+
+db_file = config.db_file
+
+
 class State:
 
     @staticmethod
@@ -5,14 +14,14 @@ class State:
         # Here we directly use the "user_session" global variable
         # As using the "session_get()" function returns the following error:
         # 'staticmethod' object is not callable
-        global user_session
+        user_session = session.session_get()
         if user_session is None:
             return {
                 "Response": "Error",
                 "Message": "Not Allowed"
             }
         else:
-            website_states = models_database.DB.db_user_export_websites(db_file, user_session['client_id'])
+            website_states = database.DB.db_user_export_websites(db_file, user_session['client_id'])
             wordpress_states = {}
             backup_states = {}
             notification_states = {}
@@ -38,27 +47,26 @@ class State:
 
     @staticmethod
     def state_local_get():
-        current_session = session_get()
+        current_session = session.session_get()
         if current_session is None:
             return {
                 "Response": "Error",
                 "Message": "Not Allowed"
             }
         else:
-            result = models_database.DB.db_user_state_get(db_file, current_session['client_id'])
+            result = database.DB.db_user_state_get(db_file, current_session['client_id'])
             return result
 
     @staticmethod
     def state_local_set(state_obj: dict):
-        current_session = session_get()
-        if current_session is None:
+        if session.session_get() is None:
             return {
                 "Response": "Error",
                 "Message": "Not Allowed"
             }
         else:
             if state_obj is not None:
-                result = models_database.DB.db_user_state_set(db_file, state_obj)
+                result = database.DB.db_user_state_set(db_file, state_obj)
                 if result:
                     return {
                         "Response": "Success",
@@ -72,14 +80,14 @@ class State:
 
     @staticmethod
     def state_cluster_get():
-        current_session = session_get()
+        current_session = session.session_get()
         if current_session is None:
             return {
                 "Response": "Error",
                 "Message": "Not Allowed"
             }
         else:
-            url = __cluster_url__ + "/state/get"
+            url = config.cluster_url + "/state/get"
             result = requests.post(url, json={"client_id": current_session['client_id']})
             if result:
                 current_cluster_state = result.json()
@@ -93,7 +101,7 @@ class State:
                     # TODO: We're here in the development process
                     # Here we need to send a POST request to the Cluster and provide the local state
                     # So the State on the server can be updated
-                    url2 = __cluster_url__ + "/state/set"
+                    url2 = config.cluster_url + "/state/set"
                     json_data = {}
                     json_data['state_obj'] = current_local_state
                     result2 = requests.post(url2, json=json_data)

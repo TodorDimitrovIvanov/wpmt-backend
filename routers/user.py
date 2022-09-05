@@ -1,5 +1,6 @@
 from fastapi import HTTPException, Request, APIRouter
-from models import post, database, config, state
+from models import post, database, config
+from models.state import State as state
 from models.session import Session as session
 from routers import log
 import requests
