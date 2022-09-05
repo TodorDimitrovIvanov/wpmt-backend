@@ -4,7 +4,7 @@ import json
 import sqlite3
 from typing import Optional
 from fastapi import HTTPException
-import router
+from routers import log
 
 
 class DB:
@@ -17,7 +17,7 @@ class DB:
                 return conn
         except sqlite3.Error as err:
             message = "[Local][DB][Error][01]: Database can't be opened. File expected location: " + db_file + ". Full error message: " + str(err)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
@@ -49,21 +49,21 @@ class DB:
                     raise TypeError
         except sqlite3.Error as e:
             message = "[Local][DB][Error][02]: Database connection error. Full message: " + request + "\nFull error message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
             )
         except OSError as e:
             message = "[Local][DB][Error][01]: Database can't be opened. Full message: " + request + "\nFull error message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
             )
         except TypeError as e:
             message = "[Local][DB][Error][03]: Received None as a response from the DB. \nRequest: " + request + "\nFull error message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
@@ -88,7 +88,7 @@ class DB:
         except sqlite3.Error as e:
             message = "[Local][DB][Error][02]: Database connection error. Full message: " + request + "\nFull error message: " + str(e)
             print("DEBUG: DB.insert_data.ERROR: ", str(e))
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
@@ -97,7 +97,7 @@ class DB:
         except OSError as e:
             message = "[Local][DB][Error][01]: Database can't be opened. Full message: " + request + "\nFull error message: " + str(e)
             print("DEBUG: DB.insert_data.ERROR: ", str(e))
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
@@ -106,7 +106,7 @@ class DB:
         except TypeError as e:
             message = "[Local][DB][Error][03]: Received None as a response from the DB. Full message: " + request + "\nFull error message: " + str(e)
             print("DEBUG: DB.insert_data.ERROR: ", str(e))
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
@@ -125,14 +125,14 @@ class DB:
             db_conn.close()
         except sqlite3.Error as e:
             message = "[Local][DB][Error][02]: Database connection error. Full message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message
             )
         except OSError as e:
             message = "[Local][DB][Error][01]: Database can't be opened. Full message: " + str(e)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             raise HTTPException(
                 status_code=500,
                 detail=message

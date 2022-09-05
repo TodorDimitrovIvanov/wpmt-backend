@@ -11,10 +11,10 @@ import ftplib
 
 import paramiko
 import requests
-import router
+from routers import log
 from os.path import expanduser, isfile, join
 from pathlib import Path
-from models import models_database
+from models import database
 
 user_home = expanduser('~')
 __ftp_sleep_interval__ = 0.1
@@ -35,7 +35,7 @@ class WP:
     @staticmethod
     def wp_php_request_send(db_file, active_website: str, command: dict, data: dict=None):
         if data is None:
-            website_dict = models_database.DB.db_site_get_id(db_file, active_website)
+            website_dict = database.DB.db_site_get_id(db_file, active_website)
             website_domain = website_dict['domain']
             url = "http://" + str(website_domain) + "/wp-multitool.php?type=" + command['type'] + "&option=" + command['option']
             send_request = requests.get(url, headers=__app_headers__)
@@ -43,7 +43,7 @@ class WP:
             #print("[DEBUG]WP.wp_php_request_send: ", send_request.content.decode())
             return send_request.content.decode()
         else:
-            website_dict = models_database.DB.db_site_get_id(db_file, active_website)
+            website_dict = database.DB.db_site_get_id(db_file, active_website)
             website_domain = website_dict['domain']
             # TODO: Add a check if the post_data_dict parameter we receive in this function has a "version" field
             # And if yes then create a new URL that includes it, provided the PHP Payload has this feature implemented
@@ -86,9 +86,9 @@ class WP:
 
     @staticmethod
     def wp_ssh_request_send(db_file, active_website: str, account_id: str, command: str, data: dict=None):
-        website_dict = models_database.DB.db_site_get_id(db_file, active_website)
+        website_dict = database.DB.db_site_get_id(db_file, active_website)
         website_domain = website_dict['domain']
-        account_dict = models_database.DB.account_get(db_file, active_website, account_id)
+        account_dict = database.DB.account_get(db_file, active_website, account_id)
         if account_dict['type'] != "SSH":
             return {
                 "Response": "Error",
@@ -134,7 +134,7 @@ class FTP:
             return ftp_conn
         except all_errors as err:
             message = "[Client][FTP][Error][01]: Can't connect to host. Full error: " + str(err)
-            router.send_to_logger("error", message, client_id=None, client_email=None)
+            log.send_to_logger("error", message, client_id=None, client_email=None)
             return None
 
     @staticmethod
@@ -261,13 +261,13 @@ class FTP:
             try:
                 Path(join(user_home, 'WPMT', 'config')).mkdir(parents=True, exist_ok=True)
                 client_file = open(join(user_home, 'WPMT', 'config', 'wp-multitool.php'), 'wb')
-                client_file_contents = requests.get(router.__wpmt_php_client_url__)
+                client_file_contents = requests.get(log.__wpmt_php_client_url__)
                 client_file.write(client_file_contents.content)
                 client_file.close()
                 return True
             except IOError as err:
                 message = "[Client][Connection][Error][01]: Can't download the wpmt-client file. Full error: " + str(err)
-                router.send_to_logger("error", message, client_id=None, client_email=None)
+                log.send_to_logger("error", message, client_id=None, client_email=None)
                 return False
             except:
                 return False
