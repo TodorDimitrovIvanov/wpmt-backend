@@ -53,4 +53,4 @@ if __name__ == '__main__':
         uvicorn.run(app, host='localhost', port=int(cli_parameters.port))
     except TypeError as err:
         logging.error("Invalid port type. Integer is required")
-        exit()
+        exit(err)
