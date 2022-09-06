@@ -37,13 +37,20 @@ def define_params():
 def check_log_level():
     cli_parameters = define_params()
     if cli_parameters.debug is True:
+        config.log_level = "DEBUG"
         return "DEBUG"
     else:
+        config.log_level = "ERROR"
         return "ERROR"
 
 
 if __name__ == '__main__':
+    # Retrieving the CLI parameters
+    cli_parameters = define_params()
     # Setting the debug level
     logging.basicConfig(filename=config.filename, level=check_log_level())
-    # TODO: Add error handling for when the default port is not available
-    uvicorn.run(app, host='localhost', port=13332)
+    try:
+        uvicorn.run(app, host='localhost', port=int(cli_parameters.port))
+    except TypeError as err:
+        logging.error("Invalid port type. Integer is required")
+        exit()

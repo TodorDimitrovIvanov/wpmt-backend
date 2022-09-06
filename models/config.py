@@ -22,5 +22,5 @@ cors_allowed_origins = [
     "http://localhost:3000"
 ]
 
-log_level = "WARNING"
+log_level = "ERROR"
 log_file = str(user_home) + "WPMT/logs/log.txt"
