@@ -16,3 +16,11 @@ app_headers = {
     'Referer': 'http://localhost:13337/router.py',
     'Content-Type': 'application/json'
 }
+
+cors_allowed_origins = [
+    "http://localhost:13332",
+    "http://localhost:3000"
+]
+
+log_level = "WARNING"
+log_file = str(user_home) + "WPMT/logs/log.txt"
