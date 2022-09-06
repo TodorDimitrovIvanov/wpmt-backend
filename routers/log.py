@@ -1,9 +1,8 @@
 import logging
-from fastapi import HTTPException, APIRouter
+from fastapi import APIRouter
 from models import config
 import requests
 import json
-from models import file, post
 
 global user_session
 router = APIRouter()

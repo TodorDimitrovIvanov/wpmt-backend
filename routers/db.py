@@ -9,14 +9,6 @@ db_tables = config.db_tables
 
 # Functions below are to be removed once development is completed
 # They provide utility for debugging the App and are most likely a major security risk
-@router.get("/db/check")
-def read_root():
-    if file.db_setup() and file.config_setup():
-        return {"Response: Success"}
-    else:
-        return {"Response: Failure"}
-
-
 @router.get("/db/structure", status_code=200)
 def db_struct_get():
     result = database.DB.db_struct_list(db_file)
