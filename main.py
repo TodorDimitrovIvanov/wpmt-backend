@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import log, db, user, website, account, backup, php, ssh
-from models import config
+from models import config, file
 import uvicorn
 import logging
 import argparse
@@ -29,21 +29,34 @@ def define_params():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description='WordPress Multi Tool Client backend'
     )
-    parser.add_argument('-p', '--port', default=13332, help='The port on which the backend will start')
-    parser.add_argument('-d', '--debug', action=argparse.BooleanOptionalAction, help='Enables debug logging level')
+    parser.add_argument('-p', '--port', type=int, default=13332, help='The port on which the backend will start')
+    parser.add_argument('-d', '--debug', action='store_true', help='Enables debug logging level')
+    parser.set_defaults(port=True)
     return parser.parse_args()
 
 
-def check_log_level():
-    cli_parameters = define_params()
+def check_log_level(cli_parameters):
     if cli_parameters.debug is True:
+        config.log_level = "DEBUG"
         return "DEBUG"
     else:
+        config.log_level = "ERROR"
         return "ERROR"
 
 
 if __name__ == '__main__':
-    # Setting the debug level
-    logging.basicConfig(filename=config.filename, level=check_log_level())
-    # TODO: Add error handling for when the default port is not available
-    uvicorn.run(app, host='localhost', port=13332)
+    # Retrieving the CLI parameters
+    parameters = define_params()
+    print(parameters)
+    # Verifying that the essential files are present
+    if file.File.db_setup() and file.File.config_setup() and file.File.log_setup():
+        # Setting the debug level
+        logging.basicConfig(filename=config.log_file, level=check_log_level(parameters))
+        try:
+            if int(parameters.port) > 1:
+                uvicorn.run(app, host='localhost', port=int(parameters.port))
+            else:
+                logging.error("Invalid port. Please enter port from 3000 to 15000")
+        except TypeError as err:
+            logging.error("Invalid port type. Integer is required")
+            exit(err)

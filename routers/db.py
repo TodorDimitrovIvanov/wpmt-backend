@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from models import post, database, config
+from models import post, database, config, file
 
 router = APIRouter()
 db_file = config.db_file
@@ -8,7 +8,7 @@ db_tables = config.db_tables
 
 
 # Functions below are to be removed once development is completed
-# They provide utility for debugging the App and are a major security risk
+# They provide utility for debugging the App and are most likely a major security risk
 @router.get("/db/structure", status_code=200)
 def db_struct_get():
     result = database.DB.db_struct_list(db_file)
@@ -22,6 +22,7 @@ def db_init():
         "Response": "DB Initialized"
     }
 
+
 @router.get("/db/export", status_code=200)
 def db_export():
     dictComplete = {}
@@ -31,9 +32,11 @@ def db_export():
         dictComplete[item] = result
     return dictComplete
 
+
 @router.get("/db/import", status_code=200)
 def db_import():
     pass
+
 
 @router.post("/db/list", status_code=200)
 def db_list(post_data: post.DBSearch):
