@@ -29,7 +29,7 @@ def define_params():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description='WordPress Multi Tool Client backend'
     )
-    parser.add_argument('-p', '--port', type=int, default=1333, help='The port on which the backend will start')
+    parser.add_argument('-p', '--port', type=int, default=13332, help='The port on which the backend will start')
     parser.add_argument('-d', '--debug', action='store_true', help='Enables debug logging level')
     parser.set_defaults(port=True)
     return parser.parse_args()
