@@ -28,7 +28,7 @@ pip3.9 install --no-cache-dir -r requirements.txt
 And finally we start the App like this:
 
 ```bash
-python3.9 main.py
+python3.9 main.py -p INTEGER
 ```
 
-***N.B: The App uses port 13332 so it has to be available or otherwise the API won't start***
+***N.B: You must specify the port number as otherwise the script won't start***
