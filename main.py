@@ -60,3 +60,5 @@ if __name__ == '__main__':
         except TypeError as err:
             logging.error("Invalid port type. Integer is required")
             exit(err)
+    else:
+        logging.error("Error during essential file verification. Please verify that log/log.txt, db/wpmt.db and config/config.json files exist")
